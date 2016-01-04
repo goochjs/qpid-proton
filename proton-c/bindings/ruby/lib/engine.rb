@@ -163,7 +163,7 @@ module Qpid
         url = Qpid::Proton::URL.new url if !url.is_a? Qpid::Proton::URL
         io = ::TCPSocket.new url.host, url.port
         runner = ConnectionRunner.new(io, handler)
-        runner.synchronize { |e| e.connection.open } # FIXME aconway 2016-01-04: ugly
+        runner.connection { |c| c.open }
         return runner
       end
 
@@ -208,17 +208,24 @@ module Qpid
         end
       end
 
-      # Safely execute a block that needs to use the engine or it's connection
-      # objects from a thread that is not calling #run. The engine is passed to
-      # the block. Do not use from a handler method.
+      # Pass the runner's engine to a block that is synchronized to run safely even
+      # other threads are running on the engine.
+      # Do not call from a handler method.
       # Raises EOFError if the engine is closed, or any exception raised by the block.
-      # FIXME aconway 2015-12-10: rename run/connection? Access to connection only?
-      def synchronize
+      def engine
         @lock.synchronize do
           raise EOFError.new "connection closed" if @engine.closed?
           yield @engine
           @wake_wr << 'x'
         end
+      end
+
+      # Pass the runner's connection to a block that is synchronized to run safely even
+      # if other threads are executing on the engine.
+      # Do not call from a handler method.
+      # Raises EOFError if the engine is closed, or any exception raised by the block.
+      def connection
+        engine { |e| yield e.connection }
       end
 
       # Disconnect the driver if it is not already disconnected. Will cause #run to exit.
@@ -229,61 +236,6 @@ module Qpid
       def closed?
         @lock.synchronize @engine.closed
       end
-    end
-
-    class Session
-      def open_receiver(source, opts = {})
-        # FIXME aconway 2015-12-02: link IDs.
-        receiver = receiver(opts[:name] || SecureRandom.uuid)
-        receiver.source.address ||= source || opts[:source]
-        receiver.target.address ||= opts[:target]
-        receiver.source.dynamic = true if opts[:dynamic]
-        # FIXME aconway 2015-12-02: separate handlers per link?
-        # FIXME aconway 2015-12-02: link options
-        receiver.open
-        return receiver
-      end
-
-      def open_sender(target, opts = {})
-        # FIXME aconway 2015-12-02: link IDs.
-        sender = sender(opts[:name] || SecureRandom.uuid)
-        sender.target.address ||= target || opts[:target]
-        sender.source.address ||= opts[:source]
-        sender.target.dynamic = true if opts[:dynamic]
-        # FIXME aconway 2015-12-02: separate handlers per link?
-        # FIXME aconway 2015-12-02: link options
-        sender.open
-        return sender
-      end
-    end
-
-    module Event
-      class Collector
-        def put(context, event_type)
-          Cproton.pn_collector_put(@impl, Cproton.pn_class(context.impl), context.impl, event_type.number)
-        end
-      end
-    end
-
-    module Reactor
-      class Backoff
-        def initialize min_ = 0, max_ = 3
-          @min = min_ > 0 ? min_ : 0.1
-          @max = [max_, min_].max
-          reset
-        end
-
-        def reset
-          @delay = 0
-        end
-
-        def next
-          current = @delay
-          @delay = @delay.zero? ? @min : [@max, 2 * @delay].min
-          return current
-        end
-      end
-
     end
   end
 end

@@ -131,6 +131,8 @@ module Qpid::Proton
     # @return [Sender, nil] The sender, or nil if an error occurred.
     #
     def sender(name)
+      # FIXME aconway 2016-01-04: rename create_sender or remove?
+      # Consistent use of create/open/plain name for all classes (session, sender, receiver)
       Sender.new(Cproton.pn_sender(@impl, name))
     end
 
@@ -145,7 +147,35 @@ module Qpid::Proton
     # @return [Receiver, nil] The receiver, or nil if an error occurred.
     #
     def receiver(name)
+      # FIXME aconway 2016-01-04: rename create_sender or remove?
+      # Consistent use of create/open/plain name for all classes (session, sender, receiver)
       Receiver.new(Cproton.pn_receiver(@impl, name))
+    end
+
+    # FIXME aconway 2016-01-04: doc
+    def open_receiver(source, opts = {})
+      # FIXME aconway 2015-12-02: link IDs.
+      receiver = receiver(opts[:name] || SecureRandom.uuid)
+      receiver.source.address ||= source || opts[:source]
+      receiver.target.address ||= opts[:target]
+      receiver.source.dynamic = true if opts[:dynamic]
+      # FIXME aconway 2015-12-02: separate handlers per link?
+      # FIXME aconway 2015-12-02: link options
+      receiver.open
+      return receiver
+    end
+
+    # FIXME aconway 2016-01-04: doc
+    def open_sender(target, opts = {})
+      # FIXME aconway 2015-12-02: link IDs.
+      sender = sender(opts[:name] || SecureRandom.uuid)
+      sender.target.address ||= target || opts[:target]
+      sender.source.address ||= opts[:source]
+      sender.target.dynamic = true if opts[:dynamic]
+      # FIXME aconway 2015-12-02: separate handlers per link?
+      # FIXME aconway 2015-12-02: link options
+      sender.open
+      return sender
     end
 
     # @private
