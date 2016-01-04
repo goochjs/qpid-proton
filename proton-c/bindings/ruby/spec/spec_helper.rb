@@ -141,11 +141,11 @@ RSpec::Matchers.define :be_close_array do |expected, truth|
     same == actual.length
   end
 
-  failure_message_for_should do |actual|
+  failure_message do |actual|
     "expected that #{actual} would be close to #{expected}"
   end
 
-  failure_message_for_should_not do |actual|
+  failure_message_when_negated do |actual|
     "expected that #{actual} would not be close to #{expected}"
   end
 
