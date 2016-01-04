@@ -1,4 +1,4 @@
-#!/usr/bin/enc ruby
+#!/use/bin/enc ruby
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -24,7 +24,7 @@ require 'socket'
 
 $port = Random.new.rand(10000) + 10000
 
-class ExampleTest < Test::Unit::TestCase
+module ExampleTest
 
   def run_script(script, port)
     assert File.exist? script
@@ -40,13 +40,13 @@ class ExampleTest < Test::Unit::TestCase
   end
 
   def test_helloworld
-    assert_output("reactor/helloworld.rb", "Hello world!", $port)
+    assert_output("#{@dir}/helloworld.rb", "Hello world!", $port)
   end
 
   def test_send_recv
-    assert_output("reactor/simple_send.rb", "All 100 messages confirmed!", $port)
+    assert_output("#{@dir}/simple_send.rb", "All 100 messages confirmed!", $port)
     want = (0..99).reduce("") { |x,y| x << "Received: sequence #{y}\n" }
-    assert_output("reactor/simple_recv.rb", want.strip, $port)
+    assert_output("#{@dir}/simple_recv.rb", want.strip, $port)
   end
 
   def test_client_server
@@ -60,31 +60,40 @@ class ExampleTest < Test::Unit::TestCase
 -> And the mome raths outgrabe.
 <- AND THE MOME RATHS OUTGRABE.
 EOS
-    srv = run_script("reactor/server.rb", $port)
-    assert_output("reactor/client.rb", want.strip, $port)
+    srv = run_script("#{@dir}/server.rb", $port)
+    assert_output("#{@dir}/client.rb", want.strip, $port)
 
   ensure
     Process.kill :TERM, srv.pid if srv
   end
 end
 
+class ReactorTest < Test::Unit::TestCase
+  def setup; @dir = "reactor" end
+  include ExampleTest
+end
+
+class EngineTest < Test::Unit::TestCase
+  def setup; @dir = "engine" end
+  include ExampleTest
+end
+
 begin
+  # FIXME aconway 2016-01-04: test both brokers
   broker = spawn("#{RbConfig.ruby} reactor/broker.rb -a :#{$port}")
   # Wait for the broker to be listening.
-  while true
+  for i in 0..10
     begin
       s = TCPSocket.open "", $port
-      puts "Broker ready at #{$port}"
       s.close
-      break
     rescue Errno::ECONNREFUSED
-      puts "Retry connection to #{$port}"
       sleep(0.1)
     end
   end
-
-  Test::Unit::AutoRunner.run
-
+  Process.exit Test::Unit::AutoRunner.run
 ensure
-  Process.kill :TERM, broker if broker
+  if broker
+    Process.kill :TERM, broker
+    Process.wait broker
+  end
 end

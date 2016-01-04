@@ -109,6 +109,9 @@ require "reactor/session_per_connection"
 require "reactor/container"
 require "reactor/link_option"
 
+# Engine classes
+require "engine"
+
 module Qpid::Proton
   # @private
   def self.registry

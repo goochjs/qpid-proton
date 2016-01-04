@@ -230,13 +230,27 @@ module Qpid::Proton
       Cproton.pn_connection_state(@impl)
     end
 
-    # Returns the session for this connection.
+    # Returns the default session for this connection.
     #
     # @return [Session] The session.
     #
     def session
-      @session ||= Session.wrap(Cproton.pn_session(@impl))
+      # FIXME aconway 2016-01-04: rename default_session?
+      @session ||= open_session
     end
+
+    # Open a new session on this connection.
+    def open_session
+      s = Session.wrap(Cproton.pn_session(@impl))
+      s.open
+      return s
+    end
+
+    # Open a sender on the default_session
+    def open_sender(*args, &block) session.open_sender(*args, &block) end
+
+    # Open a  on the default_session
+    def open_receiver(*args, &block) session.open_receiver(*args, &block) end
 
     # Returns the first session from the connection that matches the specified
     # state mask.

@@ -254,12 +254,11 @@ module Qpid::Proton::Reactor
     end
 
     def _apply_link_options(options, link)
-      if !options.nil? && !options.empty?
-        if !options.is_a?(::List)
+      if !options.nil?
+        if !options.is_a?(Enumerable)
           options = [Options].flatten
         end
-
-        options.each {|option| o.apply(link) if o.test(link)}
+        options.each {|o| o.apply(link) if o.test(link)}
       end
     end
 

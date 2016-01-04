@@ -23,7 +23,7 @@ class ExampleSend < Qpid::Proton::Handler::MessagingHandler
 
   def initialize(url, expected)
     super()
-    @url = url
+    @url = Qpid::Proton::URL.new url
     @sent = 0
     @confirmed = 0
     @expected = expected
