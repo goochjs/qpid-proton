@@ -152,11 +152,11 @@ module Qpid::Proton
       Receiver.new(Cproton.pn_receiver(@impl, name))
     end
 
-    # FIXME aconway 2016-01-04: doc
-    def open_receiver(source, opts = {})
-      # FIXME aconway 2015-12-02: link IDs.
+    # FIXME aconway 2016-01-04: doc opts or source
+    def open_receiver(opts = {})
+      opts = { :source => opts } if opts.is_a? String
       receiver = receiver(opts[:name] || SecureRandom.uuid)
-      receiver.source.address ||= source || opts[:source]
+      receiver.source.address ||= opts[:source]
       receiver.target.address ||= opts[:target]
       receiver.source.dynamic = true if opts[:dynamic]
       # FIXME aconway 2015-12-02: separate handlers per link?
@@ -165,11 +165,12 @@ module Qpid::Proton
       return receiver
     end
 
-    # FIXME aconway 2016-01-04: doc
-    def open_sender(target, opts = {})
+    # FIXME aconway 2016-01-04: doc opts or target
+    def open_sender(opts = {})
+      opts = { :target => opts } if opts.is_a? String
       # FIXME aconway 2015-12-02: link IDs.
       sender = sender(opts[:name] || SecureRandom.uuid)
-      sender.target.address ||= target || opts[:target]
+      sender.target.address ||= opts[:target]
       sender.source.address ||= opts[:source]
       sender.target.dynamic = true if opts[:dynamic]
       # FIXME aconway 2015-12-02: separate handlers per link?

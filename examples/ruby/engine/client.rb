@@ -29,8 +29,8 @@ class Client < Qpid::Proton::Handler::MessagingHandler
   end
 
   def on_start(event)
-    @sender = event.container.create_sender(@url)
-    @receiver = event.container.create_receiver(@sender.connection, :dynamic => true)
+    @sender = event.connection.open_sender(@url.path)
+    @receiver = event.connection.open_receiver(:dynamic => true)
   end
 
   def next_request
@@ -79,4 +79,5 @@ OptionParser.new do |opts|
   opts.on("-a", "--address=ADDRESS", "Send messages to ADDRESS (def. #{options[:address]}).") { |address| options[:address] = address }
 end.parse!
 
-Qpid::Proton::Reactor::Container.new(Client.new(options[:address], REQUESTS)).run
+url = Qpid::Proton::URL.new(options[:address])
+Qpid::Proton::ConnectionRunner.connect(url, Client.new(url, REQUESTS)).run
