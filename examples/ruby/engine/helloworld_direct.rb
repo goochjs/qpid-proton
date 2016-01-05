@@ -68,7 +68,6 @@ OptionParser.new do |opts|
 
 end.parse!
 
-begin
-  Qpid::Proton::Reactor::Container.new(HelloWorldDirect.new(options[:address])).run
-rescue Interrupt => error
-end
+url = Qpid::Proton::URL.new(options[:address])
+Qpid::Proton::ConnectionEngine.connect(url, HelloWorldDirect.new(url)).run
+raise "FIXME"

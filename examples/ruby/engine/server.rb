@@ -30,16 +30,14 @@ class Server < Qpid::Proton::Handler::MessagingHandler
   end
 
   def on_start(event)
-    @container = event.container
-    @conn = @container.connect(:url => @url)
-    @receiver = @container.create_receiver(@conn, :source => @address)
+    @receiver = event.connection.open_receiver(@address)
     @relay = nil
   end
 
   def on_connection_opened(event)
     if event.connection.remote_offered_capabilities &&
       event.connection.remote_offered_capabilities.contain?("ANONYMOUS-RELAY")
-      @relay = @container.create_sender(@conn, nil)
+      @relay = event.open_sender()
     end
   end
 
@@ -48,7 +46,8 @@ class Server < Qpid::Proton::Handler::MessagingHandler
     puts "<- #{msg.body}"
     sender = @relay || @senders[msg.reply_to]
     if sender.nil?
-      sender = @container.create_sender(@conn, :target => msg.reply_to)
+      # FIXME aconway 2016-01-05: create_ vs. open_ consistency.
+      sender = event.connection.open_sender(msg.reply_to)
       @senders[msg.reply_to] = sender
     end
     reply = Qpid::Proton::Message.new
@@ -73,4 +72,6 @@ OptionParser.new do |opts|
   opts.on("-a", "--address=ADDRESS", "Send messages to ADDRESS (def. #{options[:address]}).") { |address| options[:address] = address }
 end.parse!
 
-Qpid::Proton::Reactor::Container.new(Server.new(options[:address])).run()
+url = options[:address]
+Qpid::Proton::ConnectionRunner.connect(url, Server.new(url)).run()
+raise "FIXME"

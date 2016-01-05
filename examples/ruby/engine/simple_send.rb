@@ -51,5 +51,5 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-Qpid::Proton::ConnectionRunner.connect(
-  options[:address], SimpleSend.new(options[:address], options[:messages])).run
+url = options[:address]
+Qpid::Proton::ConnectionRunner.connect(url, SimpleSend.new(url, options[:messages])).run
