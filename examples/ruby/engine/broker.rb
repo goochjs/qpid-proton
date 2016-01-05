@@ -20,16 +20,18 @@
 require 'qpid_proton'
 require 'optparse'
 require 'pathname'
+require 'socket'
 
 require_relative '../lib/debugging'
 
-class Exchange
+# FIXME aconway 2016-01-05: simplify/eliminate
+class BrokerQueue
 
   include Debugging
 
   def initialize(dynamic = false)
     @dynamic = dynamic
-    @queue = Queue.new
+    @queue = ::Queue.new
     @consumers = []
   end
 
@@ -89,21 +91,42 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
 
   def initialize(url)
     super()
-    @url = url
+    @url = Qpid::Proton::URL.new(url)
     @queues = {}
   end
 
-  def on_start(event)
-    debug("on_start event") if $options[:debug]
-    @acceptor = event.container.listen(@url)
-    print "Listening on #{@url}\n"
+  def run()
+    acceptor = TCPServer.open(@url.host, @url.port)
+    puts "Listening on #{@url}"
+    clients = []
+    while true
+      if ready = select([acceptor]+clients, clients, nil, 10)
+        (ready[0]+ready[1]).each do |c|
+          if c == acceptor
+            clients << Qpid::Proton::ConnectionEngine.new(acceptor.accept, self)
+            debug("Accepted connection #{clients.last.io.addr}") if $options[:debug]
+          else
+            begin
+              c.process           # FIXME aconway 2016-01-05: separate read/write?
+              clients.delete(c) if c.closed?
+            rescue Exception => e
+              debug "error on #{c.io.addr}: #{e}" if $options[:debug]
+              clients.delete(c)
+            end
+          end
+        end
+      end
+    end
+  ensure
+    acceptor.close
+    clients.each {|c| c.disconnect}
   end
 
   def queue(address)
     debug("fetching queue for #{address}: (there are #{@queues.size} queues)") if $options[:debug]
     unless @queues.has_key?(address)
       debug(" creating new queue") if $options[:debug]
-      @queues[address] = Exchange.new
+      @queues[address] = BrokerQueue.new
     else
       debug(" using existing queue") if $options[:debug]
     end
@@ -119,7 +142,7 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
       if event.link.remote_source.dynamic?
         address = SecureRandom.uuid
         event.link.source.address = address
-        q = Exchange.new(true)
+        q = BrokerQueue.new(true)
         @queues[address] = q
         q.subscribe(event.link)
       elsif event.link.remote_source.address
@@ -132,7 +155,7 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
   end
 
   def unsubscribe(link)
-    debug("unsubscribing #{link.address}") if $options[:debug]
+    debug("unsubscribing #{link.source.address}") if $options[:debug]
     if @queues.has_key?(link.source.address)
       if @queues[link.source.address].unsubscribe(link)
         @queues.delete(link.source.address)
@@ -194,7 +217,4 @@ OptionParser.new do |opts|
 
 end.parse!
 
-begin
-  Qpid::Proton::Reactor::Container.new(Broker.new($options[:address])).run
-rescue Interrupt
-end
+Broker.new($options[:address]).run

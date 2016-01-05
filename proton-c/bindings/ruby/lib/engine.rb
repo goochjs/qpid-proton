@@ -64,13 +64,17 @@ module Qpid
         return @transport.pending > 0
       end
 
+      READ=1
+      WRITE=2
+
       # Read, write and process available data and events without blocking.
       # Raises RemoteCloseError if the remote end sends an AMQP close with an error.
       # Raises IOError if the connection closes due to an IO error.
-      def process
+      # If flags=READ only try readin, flags=WRITE only try writing, flags=0 only dispatch events.
+      def process flags=READ|WRITE
         if !closed?
-          try_write if can_write?
-          try_read if can_read?
+          try_write if can_write? and (flags&WRITE)
+          try_read if can_read? and (flags&READ)
           dispatch
           # 3 ways we can close: remote AMQP close, local IO closed or both sides
           # of transport closed by try_read and try_write
@@ -80,7 +84,7 @@ module Qpid
               c = @connection.remote_condition
               raise RemoteCloseError.new(c) if c
             else
-              raise (@io_error ? @io_error : IOError.new("stream closed"))
+              raise IOError.new(@io_error ? @io_error : "stream closed")
             end
           end
         end
@@ -121,23 +125,23 @@ module Qpid
       rescue EOFError
         @transport.close_tail
       rescue Exception => e
-        @io_error ||= e
+        @io_error ||= "read error: #{e}"
         @transport.close_tail
       end
 
+      def write_nonblock(data)
+        @transport.pop @io.write_nonblock(data)
+      rescue IO::WaitWritable, Errno::EINTR      # Ignore
+      rescue Errno::EBADF       # Can't use write_nonblock, fall back to write
+        @transport.pop @io.write(data)
+      end
+
       def try_write
-        data = @transport.peek(@transport.pending)
-        begin
-          @transport.pop @io.write_nonblock(data)
-        rescue IO::WaitWritable, Errno::EINTR
-        # Ignore
-        rescue Errno::EBADF     # Can't use write_nonblock, fall back to write
-          @transport.pop @io.write(data)
-        end
+        write_nonblock(@transport.peek(@transport.pending))
       rescue EOFError
         @transport.close_head
       rescue Exception => e
-        @io_error ||= e
+        @io_error ||= "write error: #{e}"
         @transport.close_head
       end
     end

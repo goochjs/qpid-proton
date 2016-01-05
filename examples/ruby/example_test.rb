@@ -80,12 +80,12 @@ end
 
 begin
   # FIXME aconway 2016-01-04: test both brokers
-  broker = spawn("#{RbConfig.ruby} reactor/broker.rb -a :#{$port}")
+  broker = spawn("#{RbConfig.ruby} engine/broker.rb -a :#{$port}")
   # Wait for the broker to be listening.
   for i in 0..10
     begin
-      s = TCPSocket.open "", $port
-      s.close
+      TCPSocket.open("", $port).close
+      break
     rescue Errno::ECONNREFUSED
       sleep(0.1)
     end
