@@ -53,7 +53,11 @@ OptionParser.new do |opts|
 end.parse!
 
 begin
-  Qpid::Proton::ConnectionEngine.new(SimpleSend.new(options[:address], options[:messages])).run
-rescue Interrupt => error
-  puts "ERROR: #{error}"
+  url = Qpid::Proton::URL.new(options[:address])
+  server = TCPServer.new(url.host, url.port)
+  # FIXME aconway 2016-01-05: naming, ExampleReceive nonsense
+  Qpid::Proton::ConnectionRunner.new(
+    server.accept, ExampleSend.new(url, options[:messages])).run
+ensure
+  server.close if server
 end

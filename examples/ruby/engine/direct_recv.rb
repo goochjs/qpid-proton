@@ -19,25 +19,9 @@
 
 require 'qpid_proton'
 require 'optparse'
+require 'socket'
 
 require_relative '../lib/send_and_receive'
-
-class DirectReceive < ExampleReceive
-
-  def initialize(url, expected)
-    super
-  end
-
-  def on_start(event)
-    @acceptor = event.container.listen(self.url)
-  end
-
-  def on_message(event)
-    super(event)
-    @acceptor.close if self.finished?
-  end
-
-end
 
 options = {
   :address => "localhost:5672/examples",
@@ -52,9 +36,16 @@ OptionParser.new do |opts|
   end
 
   opts.on("-m", "--messages=COUNT", "The number of messages to send (def. #{options[:messages]}",
-    OptionParser::DecimalInteger) do |messages|
+          OptionParser::DecimalInteger) do |messages|
     options[:messages] = messages
   end
 end.parse!
 
-Qpid::Proton::Reactor::Container.new(DirectReceive.new(options[:address], options[:messages])).run
+begin
+  url = Qpid::Proton::URL.new(options[:address])
+  server = TCPServer.new(url.host, url.port)
+  # FIXME aconway 2016-01-05: naming, ExampleReceive nonsense
+  Qpid::Proton::ConnectionRunner.new(server.accept, ExampleReceive.new(url, options[:messages])).run
+ensure
+  server.close if server
+end

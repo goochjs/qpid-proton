@@ -22,7 +22,24 @@ require 'test/unit'
 require 'qpid_proton'
 require 'socket'
 
-$port = Random.new.rand(10000) + 10000
+def random_port
+  return Random.new.rand(10000) + 10000
+end
+
+def wait_port port
+  # Wait for something to be listening on a port.
+  for i in 0..100
+    begin
+      TCPSocket.open("", port).close
+      return
+    rescue Errno::ECONNREFUSED
+      sleep(0.1)
+    end
+  end
+  raise "timeout waiting for port ${port}"
+end
+
+$broker_port = random_port
 
 module ExampleTest
 
@@ -36,17 +53,37 @@ module ExampleTest
 
   def assert_output(script, want, port=nil)
     out = run_script(script, port)
-    assert_equal want, out.read.strip
+    assert_equal want.strip, out.read.strip
   end
 
   def test_helloworld
-    assert_output("#{@dir}/helloworld.rb", "Hello world!", $port)
+    assert_output("#{@dir}/helloworld.rb", "Hello world!", $broker_port)
   end
 
-  def test_send_recv
-    assert_output("#{@dir}/simple_send.rb", "All 100 messages confirmed!", $port)
+  def test_simple_send_recv
+    assert_output("#{@dir}/simple_send.rb", "All 100 messages confirmed!", $broker_port)
     want = (0..99).reduce("") { |x,y| x << "Received: sequence #{y}\n" }
-    assert_output("#{@dir}/simple_recv.rb", want.strip, $port)
+    assert_output("#{@dir}/simple_recv.rb", want, $broker_port)
+  end
+
+  def test_simple_send_direct_recv
+    port = random_port
+    recv = run_script("#{@dir}/direct_recv.rb", port)
+    sleep(0.1)                  # FIXME aconway 2016-01-05: wait for ready.
+    assert_output("#{@dir}/simple_send.rb", "All 100 messages confirmed!", port)
+    Process.kill :TERM, recv.pid
+    want = (0..99).reduce("") { |x,y| x << "Received: sequence #{y}\n" }
+    assert_equal want.strip, recv.read.strip
+  end
+
+  def test_direct_send_simple_recv
+    port = random_port
+    send = run_script("#{@dir}/direct_send.rb", port)
+    sleep(0.1)                  # FIXME aconway 2016-01-05: wait for ready.
+    want = (0..99).reduce("") { |x,y| x << "Received: sequence #{y}\n" }
+    assert_output("#{@dir}/simple_recv.rb", want, port)
+    Process.kill :TERM, send.pid
+    assert_equal "All 100 messages confirmed!", send.read.strip
   end
 
   def test_client_server
@@ -60,8 +97,8 @@ module ExampleTest
 -> And the mome raths outgrabe.
 <- AND THE MOME RATHS OUTGRABE.
 EOS
-    srv = run_script("#{@dir}/server.rb", $port)
-    assert_output("#{@dir}/client.rb", want.strip, $port)
+    srv = run_script("#{@dir}/server.rb", $broker_port)
+    assert_output("#{@dir}/client.rb", want.strip, $broker_port)
 
   ensure
     Process.kill :TERM, srv.pid if srv
@@ -80,16 +117,8 @@ end
 
 begin
   # FIXME aconway 2016-01-04: test both brokers
-  broker = spawn("#{RbConfig.ruby} engine/broker.rb -a :#{$port}")
-  # Wait for the broker to be listening.
-  for i in 0..10
-    begin
-      TCPSocket.open("", $port).close
-      break
-    rescue Errno::ECONNREFUSED
-      sleep(0.1)
-    end
-  end
+  broker = spawn("#{RbConfig.ruby} engine/broker.rb -a :#{$broker_port}")
+  wait_port $broker_port
   Process.exit Test::Unit::AutoRunner.run
 ensure
   if broker
