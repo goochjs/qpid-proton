@@ -64,6 +64,7 @@ module Qpid
         return @transport.pending > 0
       end
 
+      # FIXME aconway 2016-01-06: remove or make them work?
       READ=1
       WRITE=2
 
@@ -84,6 +85,7 @@ module Qpid
               c = @connection.remote_condition
               raise RemoteCloseError.new(c) if c
             else
+              # FIXME aconway 2016-01-06: io_error should yield a transport_error event.
               raise IOError.new(@io_error ? @io_error : "stream closed")
             end
           end
@@ -181,6 +183,8 @@ module Qpid
       #
       # Optional timeout means raise TimeoutError if IO blocks for more than timeout.
       #
+      # FIXME aconway 2016-01-06: run until condition? Offer separate wait()?
+      # FIXME generalize for broker?
       def run timeout=nil
         while true
           @lock.synchronize do
@@ -238,7 +242,7 @@ module Qpid
       end
 
       def closed?
-        @lock.synchronize @engine.closed
+        engine { |e| @engine.closed? }
       end
     end
   end

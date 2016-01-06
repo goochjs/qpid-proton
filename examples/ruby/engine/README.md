@@ -1,5 +1,7 @@
 <!-- FIXME aconway 2016-01-04: document engine/reactor differences -->
-## What Is The Reactor?
+## What Are The ConnectionEngine and ConnectionRunner?
+
+FIXME - both, simpify?
 
 A little outside of the scope of this document, but the reactor is an event source for letting an application know about events in the Proton messaging system. With this set of APIs an application can be register handlers that are notified when a connection is created, a message received, or a session closes.
 

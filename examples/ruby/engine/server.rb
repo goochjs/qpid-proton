@@ -58,9 +58,6 @@ class Server < Qpid::Proton::Handler::MessagingHandler
     sender.send(reply)
   end
 
-  def on_transport_error(event)
-    raise "Connection error: #{event.transport.condition}"
-  end
 end
 
 options = {
