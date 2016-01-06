@@ -22,20 +22,18 @@ require 'optparse'
 
 class HelloWorld < Qpid::Proton::Handler::MessagingHandler
 
-  def initialize(server, address)
+  def initialize(queue)
     super()
-    @server = server
-    @address = address
+    @queue = queue
   end
 
   def on_start(event)
-    conn = event.container.connect(:address => @server)
-    event.container.create_sender(conn, :target => @address)
-    event.container.create_receiver(conn, :source => @address)
+    event.connection.open_sender(@queue)
+    event.connection.open_receiver(@queue)
   end
 
   def on_sendable(event)
-    msg = Qpid::Proton::Message.new
+    msg = Qpid::Proton::Message.new # FIXME aconway 2016-01-05: constructor args
     msg.body = "Hello world!"
     event.sender.send(msg)
     event.sender.close
@@ -46,11 +44,13 @@ class HelloWorld < Qpid::Proton::Handler::MessagingHandler
     event.connection.close
   end
 
+  # FIXME aconway 2016-01-05: consistent?
   def on_transport_error(event)
     raise "Connection error: #{event.transport.condition}"
   end
 end
 
+# FIXME aconway 2016-01-06: URL or no options?
 options = {
   :address => "localhost:5672",
   :queue => "examples"
@@ -69,5 +69,4 @@ OptionParser.new do |opts|
 
 end.parse!
 
-hw = HelloWorld.new(options[:address], "examples")
-Qpid::Proton::Reactor::Container.new(hw).run
+Qpid::Proton::ConnectionRunner.connect(options[:address], HelloWorld.new(options[:queue])).run

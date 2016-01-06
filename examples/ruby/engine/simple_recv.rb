@@ -29,10 +29,7 @@ class Receiver < ExampleReceive
   end
 
   def on_start(event)
-    sfs = :'apache.org:selector-filter:string'
-    filter = Qpid::Proton::Reactor::Filter.new({sfs => Qpid::Proton::Types::Described.new(sfs, 'amqp.annotation.x-opt-offset > "500"')})
-    link = event.container.create_receiver(@url, {:options => [filter]})
-    # FIXME aconway 2015-12-21: namespaces, import into proton. move link options
+    event.connection.open_receiver(@url.path) # FIXME aconway 2016-01-06: consistnet use of url/path
   end
 
 end
@@ -55,7 +52,5 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-begin
-  Qpid::Proton::Reactor::Container.new(Receiver.new(options[:address], options[:messages])).run
-rescue Interrupt
-end
+# Runner/engine naming? Combine into single class? ConnectionContainer??
+Qpid::Proton::ConnectionRunner.connect(options[:address], Receiver.new(options[:address], options[:messages])).run

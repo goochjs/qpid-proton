@@ -63,7 +63,7 @@ class ExampleReceive < Qpid::Proton::Handler::MessagingHandler
 
   def initialize(url, expected)
     super()
-    @url = url
+    @url = Qpid::Proton::URL.new url
     @expected = expected
     @received = 0
   end
