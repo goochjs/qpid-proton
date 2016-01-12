@@ -19,6 +19,8 @@
 
 module Qpid::Proton::Util
 
+  # FIXME aconway 2016-01-12: ??? grep for use of Engine.
+
   # @private
   module Engine
 

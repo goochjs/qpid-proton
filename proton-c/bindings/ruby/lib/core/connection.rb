@@ -17,6 +17,8 @@
 # under the License.
 #++
 
+require "util/container_id.rb"
+
 module Qpid::Proton
 
   # A Connection option has at most one Qpid::Proton::Transport instance.
@@ -137,10 +139,11 @@ module Qpid::Proton
 
     def container=(name)
       Cproton.pn_connection_set_container(@impl, name)
+      @container_id = nil
     end
 
     def container
-      Cproton.pn_connection_get_container(@impl)
+      @container_id ||= Util::ContainerId.new Cproton.pn_connection_get_container(@impl)
     end
 
     # Get the AMQP hostname set by the remote connection endpoint.

@@ -120,6 +120,7 @@ module Qpid::Proton
       Connection.wrap(Cproton.pn_session_connection(@impl))
     end
 
+    # FIXME aconway 2016-01-12: private: keep create/open variants.
     # Constructs a new sender.
     #
     # Each sender between two AMQP containers must be uniquely named. Note that
@@ -155,7 +156,7 @@ module Qpid::Proton
     # FIXME aconway 2016-01-04: doc opts or source
     def open_receiver(opts = {})
       opts = { :source => opts } if opts.is_a? String
-      receiver = receiver(opts[:name] || SecureRandom.uuid)
+      receiver = receiver(opts[:name] || connection.container.next_id)
       receiver.source.address ||= opts[:source]
       receiver.target.address ||= opts[:target]
       receiver.source.dynamic = true if opts[:dynamic]
@@ -169,7 +170,7 @@ module Qpid::Proton
     def open_sender(opts = {})
       opts = { :target => opts } if opts.is_a? String
       # FIXME aconway 2015-12-02: link IDs.
-      sender = sender(opts[:name] || SecureRandom.uuid)
+      sender = sender(opts[:name] || connection.container.next_id)
       sender.target.address ||= opts[:target]
       sender.source.address ||= opts[:source]
       sender.target.dynamic = true if opts[:dynamic]

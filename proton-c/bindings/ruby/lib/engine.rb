@@ -150,7 +150,7 @@ module Qpid
 
     # Handle the IO blocking for a single ConnectionEngine, provide thread-safe access.
     # Optional block is passed the engine to set things up.
-    class ConnectionRunner      # FIXME aconway 2016-01-04: ConnectionReactor?
+    class ConnectionRunner      # FIXME merge with engine? RunnableConnection?
 
       # A ConnectionRunner using io as its connection and handler as its event
       # handler.  Note that the AMQP connection is not opened automatically, for

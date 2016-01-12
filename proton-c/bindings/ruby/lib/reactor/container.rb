@@ -50,13 +50,13 @@ module Qpid::Proton::Reactor
 
     include Qpid::Proton::Util::Reactor
 
-    include Qpid::Proton::Util::UUID
-
-    attr_accessor :container_id
     attr_accessor :global_handler
+    attr_reader :container_id
 
     def initialize(handlers, options = {})
       super(handlers, options)
+
+      # FIXME aconway 2016-01-12: document options
 
       # only do the following if we're creating a new instance
       if !options.has_key?(:impl)
@@ -70,7 +70,7 @@ module Qpid::Proton::Reactor
           Reactor.instance_method(:global_handler=).bind(self).call(ghandler)
         end
         @trigger = nil
-        @container_id = generate_uuid
+        @container_id = Qpid::Proton::Util::ContainerId.new options[:container_id]
       end
     end
 
@@ -80,7 +80,7 @@ module Qpid::Proton::Reactor
     #
     def connect(options = {})
       conn = self.connection(options[:handler])
-      conn.container = self.container_id || generate_uuid
+      conn.container = self.container_id
       connector = Connector.new(conn)
       conn.overrides = connector
       if !options[:url].nil?
@@ -137,6 +137,7 @@ module Qpid::Proton::Reactor
     # @return [Sender] The sender.
     #
     def create_sender(context, opts = {})
+      # FIXME aconway 2016-01-12: naming - open_sender?
       if context.is_a?(::String)
         context = Qpid::Proton::URL.new(context)
       end
@@ -148,9 +149,7 @@ module Qpid::Proton::Reactor
 
       session = self._session(context)
 
-      sender = session.sender(opts[:name] ||
-                              id(session.connection.container,
-                                target, opts[:source]))
+      sender = session.sender(opts[:name] || @container_id.next_id)
         sender.source.address = opts[:source] if !opts[:source].nil?
         sender.target.address = target if target
         sender.handler = opts[:handler] if !opts[:handler].nil?
@@ -194,9 +193,7 @@ module Qpid::Proton::Reactor
 
       session = self._session(context)
 
-      receiver = session.receiver(opts[:name] ||
-                                  id(session.connection.container,
-                                      source, opts[:target]))
+      receiver = session.receiver(opts[:name] || @container_id.next_id)
       receiver.source.address = source if source
       receiver.source.dynamic = true if opts.has_key?(:dynamic) && opts[:dynamic]
       receiver.target.address = opts[:target] if !opts[:target].nil?
@@ -239,18 +236,6 @@ module Qpid::Proton::Reactor
     def do_work(timeout = nil)
       self.timeout = timeout unless timeout.nil?
       self.process
-    end
-
-    def id(container, remote, local)
-      if !local.nil? && !remote.nil?
-        "#{container}-#{remote}-#{local}"
-      elsif !local.nil?
-        "#{container}-#{local}"
-      elsif !remote.nil?
-        "#{container}-#{remote}"
-      else
-        "#{container}-#{generate_uuid}"
-      end
     end
 
     def _apply_link_options(options, link)

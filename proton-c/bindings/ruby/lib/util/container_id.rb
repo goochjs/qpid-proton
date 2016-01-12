@@ -18,15 +18,17 @@
 #++
 
 module Qpid::Proton::Util
+  # A container-id string that also can generate unique link IDs using a counter.
+  class ContainerId < String
 
-  module UUID
-
-    def generate_uuid
-      # generate a UUID based on what APIs are available with the current
-      # version of Ruby
-      SecureRandom.uuid
+    def initialize s=nil
+      super s || SecureRandom.uuid
+      @count  = 0
     end
 
+    # Generate a unique id of the form '<hex-digits> + "@" + self'.
+    def next_id
+      (@count += 1).to_s(16) + "@" + self
+    end
   end
-
 end
