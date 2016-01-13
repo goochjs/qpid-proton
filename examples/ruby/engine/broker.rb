@@ -24,8 +24,8 @@ require 'socket'
 
 require_relative '../lib/debugging'
 
-# FIXME aconway 2016-01-05: simplify/eliminate
-class BrokerQueue
+# FIXME aconway 2016-01-05: simplify/eliminate Use Queue
+class MessageQueue
 
   include Debugging
 
@@ -126,7 +126,7 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
     debug("fetching queue for #{address}: (there are #{@queues.size} queues)") if $options[:debug]
     unless @queues.has_key?(address)
       debug(" creating new queue") if $options[:debug]
-      @queues[address] = BrokerQueue.new
+      @queues[address] = MessageQueue.new
     else
       debug(" using existing queue") if $options[:debug]
     end
@@ -142,7 +142,7 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
       if event.link.remote_source.dynamic?
         address = SecureRandom.uuid
         event.link.source.address = address
-        q = BrokerQueue.new(true)
+        q = MessageQueue.new(true)
         @queues[address] = q
         q.subscribe(event.link)
       elsif event.link.remote_source.address

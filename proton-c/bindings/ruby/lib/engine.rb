@@ -30,12 +30,19 @@ module Qpid
     #
     class ConnectionEngine
 
+      # FIXME aconway 2016-01-13: auto-close, choice about raised exceptions?
+
       class RemoteCloseError < ProtonError; end
 
       # FIXME aconway 2015-12-02: setting connection options.
 
       # Read/write an IO object and dispatch AMQP events to a
       # Qpid::Proton::Event::Handler.
+      #
+      # The io object must respond to #read_nonblock and #write_nonblock,
+      # with the same behavior documented for the standard library IO class.
+      # The ConnectionEngine does not use any other methods of io.
+      #
       def initialize io, handler=nil
         # Default to a basic MessagingHandler for default behaviors.
         @handler = handler || Handler::MessagingHandler.new
@@ -73,7 +80,8 @@ module Qpid
       # Raises RemoteCloseError if the remote end sends an AMQP close with an error.
       # Raises IOError if the connection closes due to an IO error.
       #
-      # If flags=READ only try readin, flags=WRITE only try writing, flags=0 only dispatch events.
+      # If flags=READ only try readin, flags=WRITE only try writing, flags=0
+      # only dispatch events.
       def process flags=READ|WRITE
         if !closed?
           try_write if can_write? and (flags&WRITE)
@@ -81,7 +89,7 @@ module Qpid
           dispatch
           # 3 ways we can close: remote AMQP close, local IO closed or both sides
           # of transport closed by try_read and try_write
-          if @connection.remote_closed? || @io.closed? || @transport.closed?
+          if @connection.remote_closed? || @transport.closed?
             disconnect
             if @connection.remote_closed? # AMQP close
               c = @connection.remote_condition
@@ -98,14 +106,14 @@ module Qpid
         return @transport.closed?
       end
 
-      # Disconnect the engine's IO, process final shutdown events.
+      # Disconnect from the IO object. Does not send an AMQP close or close the IO.
       def disconnect
         return if closed?
+        @connection.close unless @connection.local_closed?
         try_write while can_write?
-        @io.close rescue nil
         @transport.close_head
         @transport.close_tail
-        dispatch                # Final events.
+        dispatch
       end
 
       private
@@ -137,8 +145,6 @@ module Qpid
       def write_nonblock(data)
         @transport.pop @io.write_nonblock(data)
       rescue IO::WaitWritable, Errno::EINTR      # Ignore
-      rescue Errno::EBADF       # Can't use write_nonblock, fall back to write
-        @transport.pop @io.write(data)
       end
 
       # Don't throw, store errors in io_error
