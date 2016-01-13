@@ -69,8 +69,10 @@ module Qpid
       WRITE=2
 
       # Read, write and process available data and events without blocking.
+      #
       # Raises RemoteCloseError if the remote end sends an AMQP close with an error.
       # Raises IOError if the connection closes due to an IO error.
+      #
       # If flags=READ only try readin, flags=WRITE only try writing, flags=0 only dispatch events.
       def process flags=READ|WRITE
         if !closed?
@@ -119,6 +121,7 @@ module Qpid
         end
       end
 
+      # Don't throw, store errors in io_error
       def try_read
         data = @io.read_nonblock(@transport.capacity)
         @transport.push(data) if !data.empty?
@@ -138,6 +141,7 @@ module Qpid
         @transport.pop @io.write(data)
       end
 
+      # Don't throw, store errors in io_error
       def try_write
         write_nonblock(@transport.peek(@transport.pending))
       rescue EOFError
@@ -183,12 +187,19 @@ module Qpid
       #
       # Optional timeout means raise TimeoutError if IO blocks for more than timeout.
       #
+      # Raise RemoteCloseError or IOError if the connection is closed by an AMQP
+      # error or an IO error respectively.
+      #
+      # Raise EOFError if a block is specified and the connection is closed before the
+      # block yields true.
+      #
       # FIXME aconway 2016-01-06: run until condition? Offer separate wait()?
       # FIXME generalize for broker?
+      #
       def run timeout=nil
         while true
           @lock.synchronize do
-            @engine.process
+            @engine.process     # Throws IOError or RemoteCloseError
             if block_given?
               return if yield
               raise EOFError if @engine.closed?

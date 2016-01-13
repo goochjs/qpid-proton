@@ -70,5 +70,9 @@ OptionParser.new do |opts|
 end.parse!
 
 url = options[:address]
-Qpid::Proton::ConnectionRunner.connect(url, Server.new(url)).run()
-raise "FIXME"
+
+begin
+  Qpid::Proton::ConnectionRunner.connect(url, Server.new(url)).run()
+rescue Exception=>e
+  puts "server exit with {#e}"
+end

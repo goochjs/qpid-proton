@@ -18,17 +18,32 @@
 #++
 
 module Qpid::Proton::Util
-  # A container-id string that also can generate unique link IDs using a counter.
+  # Mutable, thread-safe counter
+  class Counter
+    def initialize
+      @lock = Mutex.new
+      @count = 0 
+    end
+
+    def next
+      @lock.synchronize { @count += 1 }
+    end
+  end
+
+  # Immutable (frozen) String container-id that can generate unique link IDs
+  # by combining the container-id with a thread-safe counter.
   class ContainerId < String
 
-    def initialize s=nil
-      super s || SecureRandom.uuid
-      @count  = 0
+    # id must be convertible to String. Generate a random UUID if id is not supplied.
+    def initialize id=nil
+      super(id || SecureRandom.uuid)
+      @count  = Counter.new
+      freeze
     end
 
     # Generate a unique id of the form '<hex-digits> + "@" + self'.
     def next_id
-      (@count += 1).to_s(16) + "@" + self
+      @count.next.to_s(16) + "@" + self
     end
   end
 end

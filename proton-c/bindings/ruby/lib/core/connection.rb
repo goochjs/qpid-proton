@@ -137,13 +137,16 @@ module Qpid::Proton
       Cproton.pn_connection_remote_container(@impl)
     end
 
-    def container=(name)
-      Cproton.pn_connection_set_container(@impl, name)
+    # Set the container ID string. Resets the ContainerId link counter.
+    def container=(id)
+      Cproton.pn_connection_set_container(@impl, String.new(id))
       @container_id = nil
     end
 
+    # Returns a ContainerId with the container ID string.
     def container
-      @container_id ||= Util::ContainerId.new Cproton.pn_connection_get_container(@impl)
+      @container_id ||= Util::ContainerId.new(Cproton.pn_connection_get_container(@impl))
+      return @container_id
     end
 
     # Get the AMQP hostname set by the remote connection endpoint.
