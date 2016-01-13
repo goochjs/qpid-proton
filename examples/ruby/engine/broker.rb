@@ -96,29 +96,33 @@ class Broker < Qpid::Proton::Handler::MessagingHandler
   end
 
   def run()
+    clients = []
     acceptor = TCPServer.open(@url.host, @url.port)
     puts "Listening on #{@url}"
-    clients = []
     while true
       if ready = select([acceptor]+clients, clients, nil, 10)
         (ready[0]+ready[1]).each do |c|
           if c == acceptor
-            clients << Qpid::Proton::ConnectionEngine.new(acceptor.accept, self)
-            debug("Accepted connection #{clients.last.io.addr}") if $options[:debug]
+            c = Qpid::Proton::ConnectionEngine.new(acceptor.accept, self)
+            clients << c
+            debug("Accepted connection #{c.io.addr}") if $options[:debug]
           else
             begin
               c.process           # FIXME aconway 2016-01-05: separate read/write?
-              clients.delete(c) if c.closed?
             rescue Exception => e
               debug "error on #{c.io.addr}: #{e}" if $options[:debug]
+              c.disconnect
+            end
+            if c.closed?
               clients.delete(c)
+              c.io.close if c.io && !c.io.closed? # FIXME aconway 2016-01-13: auto-close?
             end
           end
         end
       end
     end
   ensure
-    acceptor.close
+    acceptor.close if acceptor
     clients.each {|c| c.disconnect}
   end
 
