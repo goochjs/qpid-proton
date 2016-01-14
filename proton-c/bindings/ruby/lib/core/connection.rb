@@ -41,27 +41,14 @@ module Qpid::Proton
     # @private
     def self.wrap(impl)
       return nil if impl.nil?
-
-      self.fetch_instance(impl, :pn_connection_attachments) || Connection.new(impl)
+      self.fetch_instance(impl, :pn_connection_attachments) || Connection.new({}, impl)
     end
 
-    # Constructs a new instance of Connection.
-    #
-    # You do *not* need to provide the underlying C struct, as this is
-    # automatically generated as needed. The argument is a convenience
-    # for returning existing Connection objects.
-    #
-    # @param impl [pn_connection_t] The pn_connection_t struct.
-    #
-    def initialize(impl = Cproton.pn_connection)
+    def initialize(options={}, impl=Cproton.pn_connection)
       super()
       @impl = impl
-      @offered_capabilities = nil
-      @desired_capabilities = nil
-      @properties = nil
-      @overrides = nil
-      @collector = nil
       self.class.store_instance(self, :pn_connection_attachments)
+      set_options options
     end
 
     def overrides?
@@ -159,32 +146,29 @@ module Qpid::Proton
     end
 
     # Open the local end of the connection.
-    #
-    # +options+ can contain the following options, all have defaults:
-    #
-    # * +:container_id+ - String AMQP container ID, defaults to a UUID
-    # * +:link_prefix+ - String prefix for generated link names, default is container_id
-    #
     def open options={}
-      # FIXME aconway 2016-01-14: TODO other settings.
+      # FIXME aconway 2016-01-14: TODO connection options.
       # object_to_data(@offered_capabilities,
       #                Cproton.pn_connection_offered_capabilities(@impl))
       # object_to_data(@desired_capabilities,
       #                Cproton.pn_connection_desired_capabilities(@impl))
       # object_to_data(@properties,
       #                Cproton.pn_connection_properties(@impl))
-      cid = options.value_or :container_id, SecureRandom.uuid
-      Cproton.pn_connection_set_container(@impl, cid)
-      @link_prefix = options.value_or :link_prefix, cid
-      @link_prefix = SecureRandom.uuid if !@link_prefix || @link_prefix.empty?
-      @link_count = 0
+      set_options options
       Cproton.pn_connection_open(@impl)
     end
 
-    # Generate a unique link name, internal use only.
-    def link_name
-      @link_prefix + "/" +  (@link_count += 1).to_s(16)
+    # FIXME aconway 2016-01-14: verify container_id and link name settings.
+    def set_options options
+      cid = options[:container_id] || self.container_id || SecureRandom.uuid
+      Cproton.pn_connection_set_container(@impl, cid)
+      @id_factory = options[:id_factory] || Util::IdFactory.new(cid)
     end
+
+    private :set_options
+
+    # Generate a unique link name, internal use only.
+    def link_name; @id_factory.next end
 
     # Closes the connection.
     #

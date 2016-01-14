@@ -39,17 +39,19 @@ module Qpid
       # Read/write an IO object and dispatch AMQP events to a
       # Qpid::Proton::Event::Handler.
       #
-      # The io object must respond to #read_nonblock and #write_nonblock,
-      # with the same behavior documented for the standard library IO class.
-      # The ConnectionEngine does not use any other methods of io.
+      # * +io+ - must respond to read_nonblock and write_nonblock with the
+      #   behavior documented for the standard ::IO class.  The ConnectionEngine
+      #   does not use any other IO methods.
+      # * +:handler+ - A Handler::MessagingHandler instance
+      # * +options+ - passed to the Connection, see Connection#open
       #
-      def initialize io, handler=nil
+      def initialize io, handler=nil, options={}
         # Default to a basic MessagingHandler for default behaviors.
         @handler = handler || Handler::MessagingHandler.new
         @io = io
         @collector = Event::Collector.new
         @transport = Transport.new
-        @connection = Connection.new
+        @connection = Connection.new options
         @connection.collect(@collector)
         @transport.bind(@connection)
       end
@@ -167,19 +169,20 @@ module Qpid
       # a client connection you should call #connection.open to open it, for a
       # server connection it will be opened by the other end and the handler will
       # get a connection_opened event.
-      def initialize io, handler=nil
-        @engine = ConnectionEngine.new io, handler
+      def initialize io, handler=nil, options={}
+        @engine = ConnectionEngine.new io, handler, options
         @lock = Mutex.new
         @wake_rd, @wake_wr = IO.pipe
         yield @engine if block_given?
       end
 
       # Connect to URL as a client, return a ConnectionRunner using handler.
-      def self.connect(url, handler=nil)
+      def self.connect(url, handler=nil, options={})
         url = Qpid::Proton::URL.new url if !url.is_a? Qpid::Proton::URL
         io = ::TCPSocket.new url.host, url.port
-        runner = ConnectionRunner.new(io, handler)
-        runner.connection { |c| c.open }
+        # FIXME aconway 2016-01-14: move to factory
+        runner = ConnectionRunner.new(io, handler, options)
+        runner.connection { |c| c.open options }
         return runner
       end
 

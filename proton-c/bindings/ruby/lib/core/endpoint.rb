@@ -118,7 +118,6 @@ module Qpid::Proton
         on_error = reactor.method(:on_error)
       end
       record = self.attachments
-      puts "record=#{record}"
       WrappedHandler.wrap(Cproton.pn_record_get_handler(record), on_error)
     end
 

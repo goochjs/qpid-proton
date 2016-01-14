@@ -60,7 +60,7 @@ module Qpid::Proton::Reactor
 
       # FIXME aconway 2016-01-12: document options
       @container_id = String.new(options[:container_id] || SecureRandom.uuid).freeze
-      @link_prefix_factory = Qpid::Proton::Util::IdFactory.new @container_id
+      @connection_ids = Qpid::Proton::Util::IdFactory.new @container_id
 
       # only do the following if we're creating a new instance
       if !options.has_key?(:impl)
@@ -77,11 +77,10 @@ module Qpid::Proton::Reactor
       end
     end
 
-    # Initiates the establishment of an AMQP connection.
-    #
-    # @param options [Hash] A hash of named arguments.
-    #
+    # Connect and return a Qpid::Proton::Connection. See Qpid::Proton::Connection#open
+    # for options.
     def connect(options = {})
+      # FIXME aconway 2016-01-14: url should be a required param?
       # FIXME aconway 2016-01-14: doc options, connection opts + handler, not container_id
       conn = self.connection(options[:handler])
       connector = Connector.new(conn)
@@ -105,9 +104,9 @@ module Qpid::Proton::Reactor
 
       connector.ssl_domain = SessionPerConnection.new # TODO seems this should be configurable
 
-      conn.open options.merge({:container_id => @container_id,
-                               :link_prefix => @link_prefix_factory.next})
-
+      opts = options.merge({:container_id => @container_id,
+                            :id_factory => Qpid::Proton::Util::IdFactory.new(@connection_ids.next)})
+      conn.open opts
       return conn
     end
 

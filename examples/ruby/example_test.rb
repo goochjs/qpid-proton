@@ -36,10 +36,8 @@ def wait_port port
       sleep(0.1)
     end
   end
-  raise "timeout waiting for port ${port}"
+  raise "timeout waiting for port #{port}"
 end
-
-$broker_port = random_port
 
 module ExampleTest
 
@@ -103,26 +101,37 @@ EOS
   ensure
     Process.kill :TERM, srv.pid if srv
   end
+
 end
 
+def start_broker dir
+  $broker_port = random_port
+  $broker = spawn("#{RbConfig.ruby} #{dir}/broker.rb -a :#{$broker_port}")
+  wait_port $broker_port
+end
+
+def stop_broker
+  Process.kill :TERM, $broker
+  Process.wait $broker
+end
+
+
 class ReactorTest < Test::Unit::TestCase
-  def setup; @dir = "reactor" end
+  DIR = "reactor"
+  class << self
+    def startup; start_broker DIR end
+    def shutdown; stop_broker end
+  end
+  def setup; @dir = DIR end
   include ExampleTest
 end
 
 class EngineTest < Test::Unit::TestCase
-  def setup; @dir = "engine" end
-  include ExampleTest
-end
-
-begin
-  # FIXME aconway 2016-01-04: test both brokers
-  broker = spawn("#{RbConfig.ruby} engine/broker.rb -a :#{$broker_port}")
-  wait_port $broker_port
-  Process.exit Test::Unit::AutoRunner.run
-ensure
-  if broker
-    Process.kill :TERM, broker
-    Process.wait broker
+  DIR = "engine"
+  class << self
+    def startup; start_broker DIR end
+    def shutdown; stop_broker end
   end
+  def setup; @dir = DIR end
+  include ExampleTest
 end
