@@ -19,28 +19,21 @@
 
 module Qpid::Proton
 
-  # A Connection option has at most one Qpid::Proton::Transport instance.
-  #
+  # An AMQP connection.
   class Connection < Endpoint
 
-    private
-
-    include Util::SwigHelper
+    protected
     PROTON_METHOD_PREFIX = "pn_connection"
+    include Util::SwigHelper
 
     public
+    # FIXME aconway 2016-01-14: option not accessor.
 
-    # @!attribute hostname
-    #
-    # @return [String] The AMQP hostname for the connection.
-    #
-    proton_accessor :hostname
+    # AMQP hostname string for the connection.
+    proton_accessor :hostname   # FIXME aconway 2016-01-14: clean up proton_access.
 
     # @private
-    proton_reader :attachments
-
     attr_accessor :overrides
-    attr_accessor :session_policy
 
     # @private
     include Util::Wrapper
@@ -68,7 +61,6 @@ module Qpid::Proton
       @properties = nil
       @overrides = nil
       @collector = nil
-      @session_policy = nil
       self.class.store_instance(self, :pn_connection_attachments)
     end
 
@@ -76,14 +68,7 @@ module Qpid::Proton
       !@overrides.nil?
     end
 
-    def session_policy?
-      !@session_policy.nil?
-    end
-
-    # This method is used when working within the context of an event.
-    #
-    # @return [Connection] The connection itself.
-    #
+    # Return self
     def connection
       self
     end
@@ -228,8 +213,7 @@ module Qpid::Proton
     #
     # @return [Session] The session.
     #
-    def session
-      # FIXME aconway 2016-01-04: rename default_session?
+    def default_session
       @session ||= open_session
     end
 
@@ -241,10 +225,10 @@ module Qpid::Proton
     end
 
     # Open a sender on the default_session
-    def open_sender(*args, &block) session.open_sender(*args, &block) end
+    def open_sender(*args, &block) default_session.open_sender(*args, &block) end
 
     # Open a  on the default_session
-    def open_receiver(*args, &block) session.open_receiver(*args, &block) end
+    def open_receiver(*args, &block) default_session.open_receiver(*args, &block) end
 
     # Returns the first session from the connection that matches the specified
     # state mask.
@@ -321,16 +305,16 @@ module Qpid::Proton
       Cproton.pn_error_code(Cproton.pn_connection_error(@impl))
     end
 
-    # @private
+    protected
+
     def _local_condition
       Cproton.pn_connection_condition(@impl)
     end
 
-    # @private
     def _remote_condition
       Cproton.pn_connection_remote_condition(@impl)
     end
 
+    proton_reader :attachments
   end
-
 end

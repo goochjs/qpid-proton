@@ -117,11 +117,7 @@ module Qpid::Proton::Reactor
       elsif context.is_a?(Qpid::Proton::Session)
         return context
       elsif context.is_a?(Qpid::Proton::Connection)
-        if context.session_policy?
-          return context.session_policy.session(context)
-        else
-          return self.create_session(context)
-        end
+        return context.default_session
       else
         return context.session
       end
