@@ -17,6 +17,8 @@
 # under the License.
 #++
 
+require 'util/id_factory'
+
 module Qpid::Proton::Reactor
 
   # @private
@@ -57,6 +59,8 @@ module Qpid::Proton::Reactor
       super(handlers, options)
 
       # FIXME aconway 2016-01-12: document options
+      @container_id = String.new(options[:container_id] || SecureRandom.uuid).freeze
+      @link_prefix_factory = Qpid::Proton::Util::IdFactory.new @container_id
 
       # only do the following if we're creating a new instance
       if !options.has_key?(:impl)
@@ -70,7 +74,6 @@ module Qpid::Proton::Reactor
           Reactor.instance_method(:global_handler=).bind(self).call(ghandler)
         end
         @trigger = nil
-        @container_id = Qpid::Proton::Util::ContainerId.new options[:container_id]
       end
     end
 
@@ -79,8 +82,8 @@ module Qpid::Proton::Reactor
     # @param options [Hash] A hash of named arguments.
     #
     def connect(options = {})
+      # FIXME aconway 2016-01-14: doc options, connection opts + handler, not container_id
       conn = self.connection(options[:handler])
-      conn.container = self.container_id
       connector = Connector.new(conn)
       conn.overrides = connector
       if !options[:url].nil?
@@ -102,7 +105,8 @@ module Qpid::Proton::Reactor
 
       connector.ssl_domain = SessionPerConnection.new # TODO seems this should be configurable
 
-      conn.open
+      conn.open options.merge({:container_id => @container_id,
+                               :link_prefix => @link_prefix_factory.next})
 
       return conn
     end
@@ -123,6 +127,8 @@ module Qpid::Proton::Reactor
       end
     end
 
+    # FIXME aconway 2016-01-14: move documentation to link
+    # FIXME aconway 2016-01-14: rename to open_sender
     # Initiates the establishment of a link over which messages can be sent.
     #
     # @param context [String, URL] The context.
@@ -131,32 +137,23 @@ module Qpid::Proton::Reactor
     # @param opts [String] :source The source address.
     # @param opts [Boolean] :dynamic
     # @param opts [Object] :handler
-    # @param opts [Object] :tag_generator The tag generator.
     # @param opts [Hash] :options Addtional link options
     #
     # @return [Sender] The sender.
     #
-    def create_sender(context, opts = {})
+    def create_sender(context, options = {})
       # FIXME aconway 2016-01-12: naming - open_sender?
       if context.is_a?(::String)
         context = Qpid::Proton::URL.new(context)
       end
-
-      target = opts[:target]
-      if context.is_a?(Qpid::Proton::URL) && target.nil?
-        target = context.path
+      if context.is_a?(Qpid::Proton::URL)
+        options[:target] ||= context.path
       end
 
       session = self._session(context)
-
-      sender = session.sender(opts[:name] || @container_id.next_id)
-        sender.source.address = opts[:source] if !opts[:source].nil?
-        sender.target.address = target if target
-        sender.handler = opts[:handler] if !opts[:handler].nil?
-        sender.tag_generator = opts[:tag_generator] if !opts[:tag_gnenerator].nil?
-        self._apply_link_options(opts[:options], sender)
-        sender.open
-        return sender
+      # FIXME aconway 2016-01-14: refactor
+      # self._apply_link_options(options[:options], sender)
+      session.open_sender(options)
     end
 
     # Initiates the establishment of a link over which messages can be received.
@@ -171,36 +168,32 @@ module Qpid::Proton::Reactor
     # The name will be generated for the link if one is not specified.
     #
     # @param context [Connection, URL, String] The connection or the address.
-    # @param opts [Hash] Additional otpions.
-    # @option opts [String, Qpid::Proton::URL] The source address.
-    # @option opts [String] :target The target address
-    # @option opts [String] :name The link name.
-    # @option opts [Boolean] :dynamic
-    # @option opts [Object] :handler
-    # @option opts [Hash] :options Additional link options.
+    # @param options [Hash] Additional otpions.
+    # @option options [String, Qpid::Proton::URL] The source address.
+    # @option options [String] :target The target address
+    # @option options [String] :name The link name.
+    # @option options [Boolean] :dynamic
+    # @option options [Object] :handler
+    # @option options [Hash] :options Additional link options.
     #
     # @return [Receiver
     #
-    def create_receiver(context, opts = {})
+    def create_receiver(context, options = {})
       if context.is_a?(::String)
         context = Qpid::Proton::URL.new(context)
       end
-
-      source = opts[:source]
-      if context.is_a?(Qpid::Proton::URL) && source.nil?
-        source = context.path
+      if context.is_a?(Qpid::Proton::URL)
+        options[:source] ||= context.path # FIXME aconway 2016-01-14: modifying options?
       end
+      self._session(context).open_receiver(options)
 
-      session = self._session(context)
-
-      receiver = session.receiver(opts[:name] || @container_id.next_id)
-      receiver.source.address = source if source
-      receiver.source.dynamic = true if opts.has_key?(:dynamic) && opts[:dynamic]
-      receiver.target.address = opts[:target] if !opts[:target].nil?
-      receiver.handler = opts[:handler] if !opts[:handler].nil?
-      self._apply_link_options(opts[:options], receiver)
-      receiver.open
-      return receiver
+      # FIXME aconway 2016-01-14:
+      # receiver.source.address = source if source
+      # receiver.source.dynamic = true if options.has_key?(:dynamic) && options[:dynamic]
+      # receiver.target.address = options[:target] if !options[:target].nil?
+      # receiver.handler = options[:handler] if !options[:handler].nil?
+      # self._apply_link_options(options[:options], receiver)
+      # receiver.open
     end
 
     def declare_transaction(context, handler = nil, settle_before_discharge = false)
@@ -238,6 +231,7 @@ module Qpid::Proton::Reactor
       self.process
     end
 
+    # FIXME aconway 2016-01-14: HERE
     def _apply_link_options(options, link)
       if !options.nil?
         if !options.is_a?(Enumerable)

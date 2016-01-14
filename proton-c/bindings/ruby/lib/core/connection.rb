@@ -17,19 +17,18 @@
 # under the License.
 #++
 
-require "util/container_id.rb"
-
 module Qpid::Proton
 
   # A Connection option has at most one Qpid::Proton::Transport instance.
   #
   class Connection < Endpoint
 
-    # @private
-    include Util::SwigHelper
+    private
 
-    # @private
+    include Util::SwigHelper
     PROTON_METHOD_PREFIX = "pn_connection"
+
+    public
 
     # @!attribute hostname
     #
@@ -120,44 +119,17 @@ module Qpid::Proton
       @collector = collector
     end
 
-    # Get the AMQP container name advertised by the remote connection
-    # endpoint.
-    #
-    # This will return nil until the REMOTE_ACTIVE state is reached.
-    #
-    # Any non-nil container returned by this operation will be valid
-    # until the connection is unbound from a transport, or freed,
-    # whichever happens sooner.
-    #
-    # @return [String] The remote connection's AMQP container name.
-    #
-    # @see #container
-    #
-    def remote_container
+    # AMQP container ID String advertised by the remote end of the connection.
+    def remote_container_id
       Cproton.pn_connection_remote_container(@impl)
     end
 
-    # Set the container ID string. Resets the ContainerId link counter.
-    def container=(id)
-      Cproton.pn_connection_set_container(@impl, String.new(id))
-      @container_id = nil
+    # AMQP container ID string for the local end of the connection.
+    def container_id
+      Cproton.pn_connection_get_container(@impl)
     end
 
-    # Returns a ContainerId with the container ID string.
-    def container
-      @container_id ||= Util::ContainerId.new(Cproton.pn_connection_get_container(@impl))
-      return @container_id
-    end
-
-    # Get the AMQP hostname set by the remote connection endpoint.
-    #
-    # This will return nil until the #REMOTE_ACTIVE state is
-    # reached.
-    #
-    # @return [String] The remote connection's AMQP hostname.
-    #
-    # @see #hostname
-    #
+    # AMQP hostname String set by the remote end of the connection.
     def remote_hostname
       Cproton.pn_connection_remote_hostname(@impl)
     end
@@ -201,16 +173,32 @@ module Qpid::Proton
       data_to_object(Cproton.pn_connection_remote_properites(@impl))
     end
 
-    # Opens the connection.
+    # Open the local end of the connection.
     #
-    def open
-      object_to_data(@offered_capabilities,
-                     Cproton.pn_connection_offered_capabilities(@impl))
-      object_to_data(@desired_capabilities,
-                     Cproton.pn_connection_desired_capabilities(@impl))
-      object_to_data(@properties,
-                     Cproton.pn_connection_properties(@impl))
+    # +options+ can contain the following options, all have defaults:
+    #
+    # * +:container_id+ - String AMQP container ID, defaults to a UUID
+    # * +:link_prefix+ - String prefix for generated link names, default is container_id
+    #
+    def open options={}
+      # FIXME aconway 2016-01-14: TODO other settings.
+      # object_to_data(@offered_capabilities,
+      #                Cproton.pn_connection_offered_capabilities(@impl))
+      # object_to_data(@desired_capabilities,
+      #                Cproton.pn_connection_desired_capabilities(@impl))
+      # object_to_data(@properties,
+      #                Cproton.pn_connection_properties(@impl))
+      cid = options.value_or :container_id, SecureRandom.uuid
+      Cproton.pn_connection_set_container(@impl, cid)
+      @link_prefix = options.value_or :link_prefix, cid
+      @link_prefix = SecureRandom.uuid if !@link_prefix || @link_prefix.empty?
+      @link_count = 0
       Cproton.pn_connection_open(@impl)
+    end
+
+    # Generate a unique link name, internal use only.
+    def link_name
+      @link_prefix + "/" +  (@link_count += 1).to_s(16)
     end
 
     # Closes the connection.

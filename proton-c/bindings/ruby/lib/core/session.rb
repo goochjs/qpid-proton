@@ -120,72 +120,39 @@ module Qpid::Proton
       Connection.wrap(Cproton.pn_session_connection(@impl))
     end
 
-    # FIXME aconway 2016-01-12: private: keep create/open variants.
-    # Constructs a new sender.
-    #
-    # Each sender between two AMQP containers must be uniquely named. Note that
-    # this uniqueness cannot be enforced at the library level, so some
-    # consideration should be taken in choosing link names.
-    #
-    # @param name [String] The link name.
-    #
-    # @return [Sender, nil] The sender, or nil if an error occurred.
-    #
-    def sender(name)
-      # FIXME aconway 2016-01-04: rename create_sender or remove?
-      # Consistent use of create/open/plain name for all classes (session, sender, receiver)
-      Sender.new(Cproton.pn_sender(@impl, name))
-    end
-
-    # Constructs a new receiver.
-    #
-    # Each receiver between two AMQP containers must be uniquely named. Note
-    # that this uniqueness cannot be enforced at the library level, so some
-    # consideration should be taken in choosing link names.
-    #
-    # @param name [String] The link name.
-    #
-    # @return [Receiver, nil] The receiver, or nil if an error occurred.
-    #
-    def receiver(name)
-      # FIXME aconway 2016-01-04: rename create_sender or remove?
-      # Consistent use of create/open/plain name for all classes (session, sender, receiver)
-      Receiver.new(Cproton.pn_receiver(@impl, name))
-    end
-
-    # FIXME aconway 2016-01-04: doc opts or source
-    def open_receiver(opts = {})
-      opts = { :source => opts } if opts.is_a? String
-      receiver = receiver(opts[:name] || connection.container.next_id)
-      receiver.source.address ||= opts[:source]
-      receiver.target.address ||= opts[:target]
-      receiver.source.dynamic = true if opts[:dynamic]
+    # FIXME aconway 2016-01-04: doc options or source param
+    def open_receiver(options = {})
+      options = { :source => options } if options.is_a? String
+      receiver = Receiver.new Cproton.pn_receiver(@impl, options[:name] || connection.link_name)
+      receiver.source.address ||= options[:source]
+      receiver.target.address ||= options[:target]
+      receiver.source.dynamic = true if options[:dynamic]
       # FIXME aconway 2015-12-02: separate handlers per link?
       # FIXME aconway 2015-12-02: link options
       receiver.open
       return receiver
     end
 
-    # FIXME aconway 2016-01-04: doc opts or target
-    def open_sender(opts = {})
-      opts = { :target => opts } if opts.is_a? String
+    # FIXME aconway 2016-01-04: doc options or target param
+    def open_sender(options = {})
+      options = { :target => options } if options.is_a? String
       # FIXME aconway 2015-12-02: link IDs.
-      sender = sender(opts[:name] || connection.container.next_id)
-      sender.target.address ||= opts[:target]
-      sender.source.address ||= opts[:source]
-      sender.target.dynamic = true if opts[:dynamic]
+      sender = Sender.new Cproton.pn_sender(@impl, options[:name] || connection.link_name)
+      sender.target.address ||= options[:target]
+      sender.source.address ||= options[:source]
+      sender.target.dynamic = true if options[:dynamic]
       # FIXME aconway 2015-12-02: separate handlers per link?
       # FIXME aconway 2015-12-02: link options
       sender.open
       return sender
     end
 
-    # @private
+    private
+
     def _local_condition
       Cproton.pn_session_condition(@impl)
     end
 
-    # @private
     def _remote_condition # :nodoc:
       Cproton.pn_session_remote_condition(@impl)
     end

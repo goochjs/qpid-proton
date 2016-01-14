@@ -28,9 +28,7 @@ module Qpid::Proton
     attr_reader :port
     attr_reader :path
 
-    def initialize(url = nil, options = {})
-      options[:defaults] = true
-
+    def initialize(url = nil)
       if url
         @url = Cproton.pn_url_parse(url.to_s)
         if @url.nil?

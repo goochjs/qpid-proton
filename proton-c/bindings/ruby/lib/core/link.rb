@@ -383,5 +383,4 @@ module Qpid::Proton
     end
 
   end
-
 end

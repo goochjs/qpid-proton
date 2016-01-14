@@ -134,7 +134,15 @@ module Qpid::Proton
       Cproton.pn_record_set_handler(record, impl)
       Cproton.pn_decref(impl)
     end
-
   end
+end
 
+class ::Hash
+  # Returns `(self.key? key) ? self[key] : default`
+  #
+  # Note this is different from self[key] || default, as
+  # `self[key] = nil` will take precendence over the default.
+  def value_or key, default
+    (self.key? key) ? self[key] : default
+  end
 end

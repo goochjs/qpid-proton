@@ -19,6 +19,8 @@
 
 module Qpid::Proton::Reactor
 
+  # FIXME aconway 2016-01-14: move to core, refactor
+
   class LinkOption
     def apply(link)
     end
@@ -80,11 +82,5 @@ module Qpid::Proton::Reactor
       receiver.source.filter.object = @filter_set
     end
   end
-
-  #class Selector < Filter
-  #  def initialize(value, name = 'selector')
-  #
-  #  end
-  #end
 
 end

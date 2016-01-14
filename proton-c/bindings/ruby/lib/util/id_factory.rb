@@ -18,32 +18,21 @@
 #++
 
 module Qpid::Proton::Util
-  # Mutable, thread-safe counter
-  class Counter
-    def initialize
-      @lock = Mutex.new
-      @count = 0 
+
+  # IdFactory generates unique ID strings by appending a "/" and hex counter
+  # to a prefix string. Not thread safe.
+  class IdFactory
+    def initialize prefix
+      @prefix = prefix
+      @count = 0
     end
 
+    attr_accessor :prefix
+
+    # Generate the next ID.
     def next
-      @lock.synchronize { @count += 1 }
-    end
-  end
-
-  # Immutable (frozen) String container-id that can generate unique link IDs
-  # by combining the container-id with a thread-safe counter.
-  class ContainerId < String
-
-    # id must be convertible to String. Generate a random UUID if id is not supplied.
-    def initialize id=nil
-      super(id || SecureRandom.uuid)
-      @count  = Counter.new
-      freeze
-    end
-
-    # Generate a unique id of the form '<hex-digits> + "@" + self'.
-    def next_id
-      @count.next.to_s(16) + "@" + self
+      @count += 1
+      return prefix + "/" + @count.to_s(16)
     end
   end
 end
