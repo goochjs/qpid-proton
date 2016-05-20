@@ -28,11 +28,13 @@ import platform
 from os.path import dirname as dirname
 from threading import Thread, Event
 
+def pick_port():
+    """Pick a random port"""
+    return randrange(10000, 20000)
+
 def pick_addr():
     """Pick a new host:port address."""
-    # TODO Conway 2015-07-14: need a safer way to pick ports.
-    p =  randrange(10000, 20000)
-    return "127.0.0.1:%s" % p
+    return "127.0.0.1:%s" % pick_port()
 
 class ProcError(Exception):
     """An exception that captures failed process output"""
@@ -53,6 +55,7 @@ class Proc(Popen):
     else:
         env_args = []
 
+        # FIXME aconway 2016-05-20: valgrind/ready remove
     def __init__(self, args, ready=None, timeout=30, skip_valgrind=False, **kwargs):
         """Start an example process"""
         args = list(args)
@@ -171,29 +174,42 @@ class ExampleTestCase(TestCase):
         self.procs.append(p)
         return p
 
+
 class BrokerTestCase(ExampleTestCase):
-    """
-    ExampleTest that starts a broker in setUpClass and kills it in tearDownClass.
-    Subclasses must set `broker_exe` class variable with the name of the broker executable.
-    """
+    """ExampleTest that starts a broker in setUpClass and kills it in tearDownClass.
+    Subclass must have class method start_broker(port) returning a broker object"""
 
     @classmethod
     def setUpClass(cls):
-        cls.addr = pick_addr() + "/examples"
-        cls.broker = None       # In case Proc throws, create the attribute.
-        cls.broker = Proc([cls.broker_exe, "-a", cls.addr], ready="listening")
-        cls.broker.wait_ready()
+        port = pick_port()
+        cls.broker = cls.start_broker(port)
+        cls.broker.make_queue("examples")
+        cls.addr =  "127.0.0.1:%s/examples" % port
 
     @classmethod
     def tearDownClass(cls):
-        if cls.broker: cls.broker.safe_kill()
+        cls.broker.stop()
 
     def tearDown(self):
         b = type(self).broker
-        if b and b.poll() !=  None: # Broker crashed
+        if b and not b.alive(): # Broker crashed
             type(self).setUpClass() # Start another for the next test.
             raise ProcError(b, "broker crash")
         super(BrokerTestCase, self).tearDown()
+
+class ExampleBroker(object):
+
+    def __init__(self, exe, port):
+        self.proc = Proc([exe, "-a", "0.0.0.0:%s" % port], "listening")
+
+    def stop(self):
+        if getattr(self, "proc"):
+            self.proc.safe_kill()
+
+    def alive(self):
+        return self.proc.poll() is None
+
+    def make_queue(self, q): pass     # Made automatically.
 
 
 CLIENT_EXPECT="""Twas brillig, and the slithy toves => TWAS BRILLIG, AND THE SLITHY TOVES
@@ -206,10 +222,12 @@ def recv_expect(name, addr):
     return "%s listening on %s\n%s" % (
         name, addr, "".join(['{"sequence"=%s}\n' % (i+1) for i in range(100)]))
 
-class ContainerExampleTest(BrokerTestCase):
+class ExampleTest(BrokerTestCase):
     """Run the container examples, verify they behave as expected."""
 
-    broker_exe = "broker"
+    @classmethod
+    def start_broker(cls, port):
+        return ExampleBroker("broker", port)
 
     def test_helloworld(self):
         self.assertEqual('Hello World!\n', self.proc(["helloworld", self.addr]).wait_exit())
@@ -352,48 +370,12 @@ Hello World!
             pass
 
 
-class EngineTestCase(BrokerTestCase):
-    """Run selected clients to test a connction_engine broker."""
-
-    def test_helloworld(self):
-        self.assertEqual('Hello World!\n',
-                         self.proc(["helloworld", self.addr]).wait_exit())
-
-    def test_simple_send_recv(self):
-        self.assertEqual("all messages confirmed\n",
-                         self.proc(["simple_send", "-a", self.addr]).wait_exit())
-        self.assertEqual(recv_expect("simple_recv", self.addr), self.proc(["simple_recv", "-a", self.addr]).wait_exit())
-
-    def test_simple_recv_send(self):
-        # Start receiver first, then run sender"""
-        recv = self.proc(["simple_recv", "-a", self.addr])
-        self.assertEqual("all messages confirmed\n", self.proc(["simple_send", "-a", self.addr]).wait_exit())
-        self.assertEqual(recv_expect("simple_recv", self.addr), recv.wait_exit())
-
-
-    def test_simple_send_direct_recv(self):
-        addr = pick_addr()
-        recv = self.proc(["direct_recv", "-a", addr], "listening")
-        self.assertEqual("all messages confirmed\n",
-                         self.proc(["simple_send", "-a", addr]).wait_exit())
-        self.assertEqual(recv_expect("direct_recv", addr), recv.wait_exit())
-
-    def test_simple_recv_direct_send(self):
-        addr = pick_addr()
-        send = self.proc(["direct_send", "-a", addr], "listening")
-        self.assertEqual(recv_expect("simple_recv", addr),
-                         self.proc(["simple_recv", "-a", addr]).wait_exit())
-        self.assertEqual("direct_send listening on %s\nall messages confirmed\n" % addr,
-                         send.wait_exit())
-
-    def test_request_response(self):
-        server = self.proc(["server", "-a", self.addr], "connected")
-        self.assertEqual(CLIENT_EXPECT,
-                         self.proc(["client", "-a", self.addr]).wait_exit())
-
-
-class MtBrokerTest(EngineTestCase):
-    broker_exe = "mt_broker"
+        # FIXME aconway 2016-05-20: combine tests, all tests against both brokers?
+if os.path.exists("mt_broker"):
+    class MtBrokerTest(ExampleTest):
+        @classmethod
+        def start_broker(cls, port):
+            return ExampleBroker("mt_broker", port)
 
 if __name__ == "__main__":
     unittest.main()
