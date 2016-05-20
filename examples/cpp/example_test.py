@@ -370,7 +370,43 @@ Hello World!
             pass
 
 
-        # FIXME aconway 2016-05-20: combine tests, all tests against both brokers?
+if os.path.exists("mt_broker"):
+    class MtBrokerTest(ExampleTest):
+        @classmethod
+        def start_broker(cls, port):
+            return ExampleBroker("mt_broker", port)
+
+def check_exe(env):
+    exe = os.environ.get(env)
+    if exe and os.path.isfile(exe) and os.access(exe, os.X_OK):
+        return exe
+
+qpidd_exe = check_exe('QPIDD_EXE')
+qpid_config_exe = check_exe('QPID_CONFIG_EXE')
+
+if qpidd_exe and qpid_config_exe:
+    # FIXME aconway 2016-05-20: need to parameterize config etc, this is only good for qpidd.
+    class ExternalBroker(object):
+        def __init__(self, port):
+            self.port = port
+            dir = os.path.abspath(type(self).__name__)
+            self.proc = Proc([qpidd_exe, '-p', str(self.port), '--auth=no',
+                              '--data-dir', dir], "Listening")
+
+        def stop(self):
+            if getattr(self, "proc"):
+                self.proc.safe_kill()
+
+        def alive(self):
+            return self.proc.poll() is None
+
+        def make_queue(self, q):
+            Proc([qpid_config_exe, '-b', '127.0.0.1:%s'%self.port, 'add', 'queue', q,]).wait_exit()
+    class ExternalBrokerTest(ExampleTest):
+        @classmethod
+        def start_broker(cls, port):
+            return ExternalBroker(port)
+
 if os.path.exists("mt_broker"):
     class MtBrokerTest(ExampleTest):
         @classmethod
