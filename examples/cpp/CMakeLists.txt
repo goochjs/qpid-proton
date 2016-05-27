@@ -67,13 +67,6 @@ endfunction()
 
 set_test_path("$<TARGET_FILE_DIR:broker>")
 
-# Check for installed qpidd to run example tests.
-# FIXME aconway 2016-05-20: better way
-find_program(QPIDD_EXE qpidd)
-find_program(QPID_CONFIG_EXE qpid-config)
-add_test(NAME cpp_example_test
-  COMMAND ${env_py} -- "PATH=${test_path}" "QPIDD_EXE=${QPIDD_EXE}" "QPID_CONFIG_EXE=${QPID_CONFIG_EXE}" ${VALGRIND_ENV} ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/example_test.py -v)
-
 # TODO aconway 2016-04-26: need portable MT and IO examples.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND HAS_CPP11)
   set(container_src mt/epoll_container.cpp)

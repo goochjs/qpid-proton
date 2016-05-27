@@ -177,3 +177,16 @@ configure_file(${CMAKE_SOURCE_DIR}/config.sh.in
                ${CMAKE_BINARY_DIR}/config.sh @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config.bat.in
                ${CMAKE_BINARY_DIR}/config.bat @ONLY)
+
+# FIXME aconway 2016-05-27: external broker scripts.
+option(QPIDD_EXE "qpidd executable for external broker tests")
+option(QPID_CONFIG_EXE "qpid-config executable for external broker tests")
+
+if(QPIDD_EXE AND QPID_CONFIG_EXE)
+  configure_file(tests/tools/qpidd_broker.in tests/tools/qpidd_broker)
+endif()
+
+option(ARTEMIS_EXE "artemis executable for external broker tests")
+if(ARTEMIS_EXE)
+  configure_file(tests/tools/artemis_broker.in tests/tools/artemis_broker)
+endif()
