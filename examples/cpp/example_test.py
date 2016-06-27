@@ -182,12 +182,18 @@ class BrokerTestCase(ExampleTestCase):
     @classmethod
     def setUpClass(cls):
         port = pick_port()
-        cls.broker = cls.start_broker(port)
-        cls.broker.make_queue("examples")
         cls.addr =  "127.0.0.1:%s/examples" % port
+        cls.broker = cls.start_broker(port)
+        try:
+            cls.broker.make_queue("examples")
+        except:
+            try: cls.broker.stop()
+            except: pass
+            raise
 
     @classmethod
     def tearDownClass(cls):
+        print >>stderr, "FIXME tearDownClass", cls
         cls.broker.stop()
 
     def tearDown(self):
@@ -196,21 +202,6 @@ class BrokerTestCase(ExampleTestCase):
             type(self).setUpClass() # Start another for the next test.
             raise ProcError(b, "broker crash")
         super(BrokerTestCase, self).tearDown()
-
-class ExampleBroker(object):
-
-    def __init__(self, exe, port):
-        self.proc = Proc([exe, "-a", "0.0.0.0:%s" % port], "listening")
-
-    def stop(self):
-        if getattr(self, "proc"):
-            self.proc.safe_kill()
-
-    def alive(self):
-        return self.proc.poll() is None
-
-    def make_queue(self, q): pass     # Made automatically.
-
 
 CLIENT_EXPECT="""Twas brillig, and the slithy toves => TWAS BRILLIG, AND THE SLITHY TOVES
 Did gire and gymble in the wabe. => DID GIRE AND GYMBLE IN THE WABE.
@@ -376,42 +367,12 @@ if os.path.exists("mt_broker"):
         def start_broker(cls, port):
             return ExampleBroker("mt_broker", port)
 
-def check_exe(env):
-    exe = os.environ.get(env)
-    if exe and os.path.isfile(exe) and os.access(exe, os.X_OK):
-        return exe
-
-qpidd_exe = check_exe('QPIDD_EXE')
-qpid_config_exe = check_exe('QPID_CONFIG_EXE')
-
-if qpidd_exe and qpid_config_exe:
-    # FIXME aconway 2016-05-20: need to parameterize config etc, this is only good for qpidd.
-    class ExternalBroker(object):
-        def __init__(self, port):
-            self.port = port
-            dir = os.path.abspath(type(self).__name__)
-            self.proc = Proc([qpidd_exe, '-p', str(self.port), '--auth=no',
-                              '--data-dir', dir], "Listening")
-
-        def stop(self):
-            if getattr(self, "proc"):
-                self.proc.safe_kill()
-
-        def alive(self):
-            return self.proc.poll() is None
-
-        def make_queue(self, q):
-            Proc([qpid_config_exe, '-b', '127.0.0.1:%s'%self.port, 'add', 'queue', q,]).wait_exit()
+external_broker = os.environ.get("PN_TEST_EXTERNAL_BROKER")
+if external_broker and os.path.exists(external_broker):
     class ExternalBrokerTest(ExampleTest):
         @classmethod
         def start_broker(cls, port):
-            return ExternalBroker(port)
-
-if os.path.exists("mt_broker"):
-    class MtBrokerTest(ExampleTest):
-        @classmethod
-        def start_broker(cls, port):
-            return ExampleBroker("mt_broker", port)
+            return ExternalBroker(ExternalBroker.__name__, port)
 
 if __name__ == "__main__":
     unittest.main()

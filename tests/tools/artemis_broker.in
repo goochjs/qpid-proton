@@ -29,47 +29,49 @@ except ImportError:
 
 artemis_exe = "@ARTEMIS_EXE@"
 
-def call(cmd):
-    """Like subprocess.call but hide output unless there's an error"""
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (out, err) = p.communicate();
-    if p.returncode != 0:
-        sys.stderr.write(out+"\n")
-    return p.returncode
+class Broker:
+    def call(self, cmd):
+        """Like subprocess.call but hide output unless there's an error"""
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        (out, err) = p.communicate();
+        if p.returncode != 0:
+            sys.stderr.write(out+"\n")
+        return p.returncode
 
-def artemis_service(directory, *cmd):
-    return call([os.path.join(directory, "bin", "artemis-service")] + list(cmd))
+    def artemis_service(self, *cmd):
+        return self.call([os.path.join(directory, "bin", "artemis-service")] + list(cmd))
 
-def url_open(port, path):
-    return urlopen("http://127.0.0.1:%s/%s" % (int(port)+1, path))
+    def url_open(self, path):
+        return urlopen("http://127.0.0.1:%s/%s" % (int(self.port)+1, path))
 
-def create(directory, port):
-    os.makedirs(directory)
-    return call([artemis_exe, "create", directory, "--force", "--allow-anonymous",
-                 "--default-port", port, "--http-port", str(int(port)+1),
-                 "--user", "myUser", "--password", "myPassword", "--role", "myRole"])
+    def create(self):
+        os.makedirs(self.directory)
+        return call([artemis_exe, "create", directory, "--force", "--allow-anonymous",
+                     "--default-port", self.port, "--http-port", str(int(self.port)+1),
+                     "--user", "myUser", "--password", "myPassword", "--role", "myRole"])
 
-def start(directory, port):
-    artemis_service(directory, "start")
+    def start(self):
+        artemis_service(self.directory, "start")
 
-def stop(directory, port):
-    artemis_service(directory, "force-stop")
+    def stop(self):
+        artemis_service(self.directory, "force-stop")
 
-def alive(directory, port):
-    try:
-        r = url_open(port, "jolokia/read/org.apache.activemq.artemis:brokerName=\"0.0.0.0\",module=Core,name=\"artemis\",serviceType=Acceptor,type=Broker/Started")
-        if json.loads(r.read().decode())['value']:
-            return 0
-    except: pass
-    return 1
-
-def make_queue(directory, port, q):
-    r = url_open(port, "jolokia/exec/org.apache.activemq.artemis:brokerName=\"0.0.0.0\",module=Core,serviceType=Server,type=Broker/createQueue(java.lang.String,java.lang.String)/%s/%s" % (q, q))
-    j = json.loads(r.read().decode())
-    if 'error' in j:
-        sys.stderr.write(j['error']  + "\n")
+    def alive(self):
+        try:
+            r = url_open(self.port, "jolokia/read/org.apache.activemq.artemis:brokerName=\"0.0.0.0\",module=Core,name=\"artemis\",serviceType=Acceptor,type=Broker/Started")
+            if json.loads(r.read().decode())['value']:
+                return 0
+        except: pass
         return 1
-    return 0
+
+    def make_queue(self, q):
+        r = url_open(self.port, "jolokia/exec/org.apache.activemq.artemis:brokerName=\"0.0.0.0\",module=Core,serviceType=Server,type=Broker/createQueue(java.lang.String,java.lang.String)/%s/%s" % (q, q))
+        j = json.loads(r.read().decode())
+        if 'error' in j:
+            sys.stderr.write(j['error']  + "\n")
+            return 1
+        return 0
 
 if __name__ == "__main__":
-    sys.exit(globals()[sys.argv[1]](*sys.argv[2:]))
+    method, directory, port, *args = *sys.argv[1:]
+    getattr(Broker(directory, port), method)(*args)

@@ -190,3 +190,5 @@ option(ARTEMIS_EXE "artemis executable for external broker tests")
 if(ARTEMIS_EXE)
   configure_file(tests/tools/artemis_broker.in tests/tools/artemis_broker)
 endif()
+
+configure_file(tests/tools/example_broker.in tests/tools/example_broker)

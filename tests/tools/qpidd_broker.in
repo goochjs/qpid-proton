@@ -28,22 +28,33 @@ qpid_config_exe = "@QPID_CONFIG_EXE@"
 
 devnull = open(os.devnull, "w")
 
-def create(directory, port):
-    os.makedirs(directory)
+class Broker:
+    def __init__(directory, port):
+        self.directory, self.port = directory, port
+        self.config = os.path.join(self.directory, "qpidd.conf")
 
-def start(directory, port):
-    return subprocess.call([qpidd_exe, '-dp', port, '--auth=no', '--data-dir', directory,
-                            '--log-to-file', os.path.join(directory, "qpidd.log")])
+    def create():
+        os.makedirs(self.directory)
+            with open(self.config, "w") as config:
+                config.write("""
+auth=no
+port=%s
+data-dir=%s
+log-to-file=%s
+""")
 
-def stop(directory, port):
-    return subprocess.call([qpidd_exe, '-qp', port, '--data-dir', directory])
+    def start(): return subprocess.call([qpidd_exe, "-d", "--config", self.config])
 
-def alive(directory, port):
-    return subprocess.call([qpidd_exe, '-cp', port, '--data-dir', directory],
-                           stdout=devnull, stderr=subprocess.STDOUT)
+    def stop(): return subprocess.call([qpidd_exe, "-q", "--config", self.config])
 
-def make_queue(directory, port, q):
-    return subprocess.call([qpid_config_exe, '-b', '127.0.0.1:%s'%port, 'add', 'queue', q])
+    def alive():
+        return subprocess.call([qpidd_exe, "-c", "--config", self.config],
+                               stdout=devnull, stderr=subprocess.STDOUT)
+
+    def make_queue(q):
+        return subprocess.call([qpid_config_exe, "-b", "127.0.0.1:%s"%self.port, "add", "queue", q])
 
 if __name__ == "__main__":
-    sys.exit(globals()[sys.argv[1]](*sys.argv[2:]))
+    method, directory, port, *args = *sys.argv[1:]
+    getattr(Broker(directory, port), method)(*args)
+
