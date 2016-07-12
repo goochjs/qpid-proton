@@ -17,20 +17,25 @@
 # under the License.
 #
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_subdirectory(messenger)
-add_subdirectory(reactor)
-add_subdirectory(libuv)
+find_package(Proton REQUIRED)
+find_package(Libuv)
 
-# FIXME aconway 2016-07-06: conditional on libuv present.
-# Add a test with the correct environment to find test executables and valgrind.
-macro(add_c_test name)
-  if(WIN32)
-    set(test_path "$<TARGET_FILE_DIR:libuv-simple_send>;$<TARGET_FILE_DIR:qpid-proton>")
-  else(WIN32)
-    set(test_path "$<TARGET_FILE_DIR:libuv-simple_send>:$ENV{PATH}")
-  endif(WIN32)
-  add_test(NAME ${name} COMMAND ${CMAKE_COMMAND} -E env "PATH=${test_path}" ${VALGRIND_ENV} ${ARGN})
-endmacro()
+if (Libuv_FOUND)
 
-add_c_test(c_example_test ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/example_test.py -v)
+  include_directories(${Proton_INCLUDE_DIRS} ${Libuv_INCLUDE_DIRS})
+
+  foreach(example
+      simple_send)
+    set_source_files_properties(
+      ${example}.c
+      PROPERTIES
+      COMPILE_FLAGS "${COMPILE_WARNING_FLAGS} ${WERROR} ${COMPILE_PLATFORM_FLAGS} ${LINK_TIME_OPTIMIZATION}")
+    if(BUILD_WITH_CXX)
+      set_source_files_properties(${example}.c PROPERTIES LANGUAGE CXX)
+    endif(BUILD_WITH_CXX)
+    add_executable(libuv-${example} ${example}.c)
+    set_target_properties(libuv-${example} PROPERTIES OUTPUT_NAME ${example})
+    target_link_libraries(libuv-${example} ${Proton_LIBRARIES} ${Libuv_LIBRARIES})
+  endforeach()
+
+endif()
