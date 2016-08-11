@@ -22,42 +22,49 @@
 
 ///@file
 ///
-/// **Experimental** The Connection Engine API wraps up the proton engine
-/// objects associated with a single connection: pn_connection_t, pn_transport_t
-/// and pn_collector_t. It provides a simple bytes-in/bytes-out interface for IO
-/// and generates pn_event_t events to be handled by the application.
+///@defgroup connection_engine IO Integration SPI (Experimental)
 ///
-/// The connection engine can be fed with raw AMQP bytes from any source, and it
-/// generates AMQP byte output to be written to any destination. You can use the
-/// engine to integrate proton AMQP with any IO library, or native IO on any
-/// platform.
+/// **Experimental** IO integration SPI.
 ///
-/// The engine is not thread safe but each engine is independent. Separate
-/// engines can be used concurrently. For example a multi-threaded application
-/// can process connections in multiple threads, but serialize work for each
-/// connection to the corresponding engine.
+/// This *Service Provider Interface* allows you to integrate proton with any IO
+/// library. It has a simple bytes-in/bytes-out interface, and generates @ref
+/// event "events" to feed to application code using the @ref engine "proton engine API". The
+/// event handling application code is fully decoupled from the IO integration code.
 ///
-/// The engine is designed to be thread and IO neutral so it can be integrated with
-/// single or multi-threaded code in reactive or proactive IO frameworks.
+/// @todo To fully support this we need C abstractions for the C++ `container`
+/// and `event_loop` so event-handlers can initiate connections etc.
+///
+/// The pn_connection_engine_t has no dependencies on any threading or IO
+/// library.  It can be used to build single or multi-threaded drivers, and in
+/// reactive or proactive IO frameworks.
+///
+/// A pn_connection_engine_t instance is
+/// not thread safe, but you can use separate instances concurrently. For
+/// example a multi-threaded application can process multiple connections in
+/// multiple threads provided it serializes work for each
+/// pn_connection_engine_t.
 ///
 /// Summary of use:
 ///
-/// - while !pn_connection_engine_finished()
+/// - while not pn_connection_engine_finished()
 ///   - Read data from your source into pn_connection_engine_read_buffer()
 ///   - Call pn_connection_engine_read_done() when complete.
 ///   - Write data from pn_connection_engine_write_buffer() to your destination.
 ///   - Call pn_connection_engine_write_done() to indicate how much was written.
 ///   - Call pn_connection_engine_dispatch() to dispatch events until it returns NULL.
 ///
-/// Note on error handling: most of the pn_connection_engine_*() functions do
-/// not return an error code. If a fatal error occurs, the transport error
-/// condition will be set and the next call to pn_connection_engine_dispatch()
-/// report it to the handler as a  PN_TRANSPORT_ERROR event and return false.
+/// *Synchronous and Asynchronous IO*: The `_buffer()` and `_done()` functions
+/// are separate so you can pro-actively post asynchronous read or write requests with the
+/// `_buffer()`, then later signal completion of that request with `_done()`.
 ///
-/// @defgroup connection_engine The Connection Engine
-/// @ingroup connection_engine
-/// @{
+/// *Error handling*: most `pn_connection_engine_` functions do not return an
+/// error code. If an error occurs, the transport will be closed with an error
+/// condition, the handler will receive a `PN_TRANSPORT_ERROR` event, and
+/// pn_connection_engine_finished() will return `true` once all final processing
+/// is complete. The event handling application code does is responsible for
+/// complex error handling, the IO integration code is a simple loop-till-finished.
 ///
+///@{
 
 #include <proton/condition.h>
 #include <proton/event.h>
@@ -88,12 +95,12 @@ PN_EXTERN int pn_connection_engine_init(pn_connection_engine_t* engine);
 /// to NULL. Only call on an engine that was initialized with pn_connection_engine_init
 PN_EXTERN void pn_connection_engine_final(pn_connection_engine_t* engine);
 
-/// The engine's read buffer. Read data from your IO source to buf.start, up to
-/// a max of buf.size. Then call pn_connection_engine_read_done().
+/// The engine's read buffer.
 ///
-/// buf.size==0 means the engine cannot read presently, calling
-/// pn_connection_engine_dispatch() may create more buffer space.
+/// Read data from your IO source to buf.start, up to a max of buf.size, then
+/// call pn_connection_engine_read_done().
 ///
+/// See pn_connection_engine_use_read_buffer() to control buffer allocation.
 PN_EXTERN pn_rwbytes_t pn_connection_engine_read_buffer(pn_connection_engine_t*);
 
 /// Consume the first n bytes of data in pn_connection_engine_read_buffer() and
@@ -102,14 +109,19 @@ PN_EXTERN void pn_connection_engine_read_done(pn_connection_engine_t*, size_t n)
 
 /// Close the read side of the transport when no more data is available.
 /// Note there may still be events for pn_connection_engine_dispatch() or data
-/// in pn_connection_engine_write_buffer()
+/// to write in pn_connection_engine_write_buffer()
 PN_EXTERN void pn_connection_engine_read_close(pn_connection_engine_t*);
 
-/// The engine's write buffer. Write data from buf.start to your IO destination,
-/// up to a max of buf.size. Then call pn_connection_engine_write_done().
+/// A buffer containing output data to write to IO. Call pn_connection_engine_write_done() when
+/// data has been written.
 ///
-/// buf.size==0 means the engine has nothing to write presently.  Calling
-/// pn_connection_engine_dispatch() may generate more data.
+/// A return value with .size==0 means there is no data to write,
+/// pn_connection_engine_dispatch() may generate more.
+///
+/// A return value with .start==0 means the current buffer is too small, you
+/// must call pn_connection_engine_use_write_buffer() with a buffer of at least
+/// .size bytes.
+///
 PN_EXTERN pn_bytes_t pn_connection_engine_write_buffer(pn_connection_engine_t*);
 
 /// Call when the first n bytes of pn_connection_engine_write_buffer() have been
@@ -119,6 +131,7 @@ PN_EXTERN void pn_connection_engine_write_done(pn_connection_engine_t*, size_t n
 /// Call when the write side of IO has closed and no more data can be written.
 /// Note that there may still be events for pn_connection_engine_dispatch() or
 /// data to read into pn_connection_engine_read_buffer().
+/// pn_connection_engine_use_write_buffer() to control buffer placement.
 PN_EXTERN void pn_connection_engine_write_close(pn_connection_engine_t*);
 
 /// Close both sides of the transport, equivalent to
@@ -166,6 +179,27 @@ PN_EXTERN pn_transport_t* pn_connection_engine_transport(pn_connection_engine_t*
 ///
 PN_EXTERN pn_condition_t* pn_connection_engine_condition(pn_connection_engine_t*);
 
+
+///@name External Buffers
+///
+/// pn_connection_engine_t can use external buffers directly with the following
+/// functions.
+///
+/// @anchor growing_buffers
+/// @note *Growing buffers*: Once you set an external buffer, the corresponding
+/// `_buffer()` function may return a struct `ret` with `ret.start == NULL && ret.size > 0`
+/// That means the current buffer is too small. You must set a new buffer with
+/// at least `ret.size` bytes. You must copy the contents from old buffer to new one
+/// (e.g. by using `realloc()`) The old buffer will no longer be used.
+///@{
+
+/// Set external buffer for pn_connection_engine_read_buffer(), see @ref growing_buffers "note on growing buffers"
+PN_EXTERN void pn_connection_engine_use_read_buffer(pn_connection_engine_t*, pn_rwbytes_t);
+
+/// Set external buffer for pn_connection_engine_write_buffer(), see @ref growing_buffers "note on growing buffers"
+PN_EXTERN void pn_connection_engine_use_write_buffer(pn_connection_engine_t*, pn_rwbytes_t);
+
+///@}
 ///@}
 
 #ifdef __cplusplus
