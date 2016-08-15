@@ -32,7 +32,7 @@
 #include "../transport.hpp"
 #include "../types.hpp"
 
-#include <proton/connection_engine.h>
+#include <proton/io/connection_engine.h>
 
 #include <cstddef>
 #include <utility>

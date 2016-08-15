@@ -19,7 +19,7 @@
 #include "engine-internal.h"
 
 #include <proton/connection.h>
-#include <proton/connection_engine.h>
+#include <proton/io/connection_engine.h>
 #include <proton/transport.h>
 #include <string.h>
 

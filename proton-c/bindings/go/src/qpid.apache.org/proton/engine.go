@@ -29,7 +29,7 @@ import (
 
 /*
 #include <proton/connection.h>
-#include <proton/connection_engine.h>
+#include <proton/io/connection_engine.h>
 #include <proton/event.h>
 #include <proton/error.h>
 #include <proton/handlers.h>

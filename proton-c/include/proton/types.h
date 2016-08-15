@@ -44,6 +44,7 @@ extern "C" {
  */
 
 typedef int32_t  pn_sequence_t;
+typedef int64_t  pn_nanoseconds_t;
 typedef uint32_t pn_millis_t;
 #define PN_MILLIS_MAX (~0U)
 typedef uint32_t pn_seconds_t;

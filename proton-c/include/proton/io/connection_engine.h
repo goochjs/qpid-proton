@@ -22,40 +22,40 @@
 
 ///@file
 ///
-/// **Experimental** The Connection Engine API wraps up the proton engine
-/// objects associated with a single connection: pn_connection_t, pn_transport_t
-/// and pn_collector_t. It provides a simple bytes-in/bytes-out interface for IO
-/// and generates pn_event_t events to be handled by the application.
+/// @defgroup connection_engine Connection Engine
+/// @ingroup io_integration
+/// @{
 ///
-/// The connection engine can be fed with raw AMQP bytes from any source, and it
-/// generates AMQP byte output to be written to any destination. You can use the
-/// engine to integrate proton AMQP with any IO library, or native IO on any
-/// platform.
+/// Internal SPI providing a bytes-in/bytes-out interface to connect any IO
+/// source/destination to the Proton \ref engine API.  Consumes AMQP-encoded
+/// input bytes and generates pn_event_t events for application code, then
+/// gathers AMQP state information from the \ref engine objects to generate
+/// AMQP-encoded output bytes.
 ///
-/// The engine is not thread safe but each engine is independent. Separate
-/// engines can be used concurrently. For example a multi-threaded application
-/// can process connections in multiple threads, but serialize work for each
-/// connection to the corresponding engine.
-///
-/// The engine is designed to be thread and IO neutral so it can be integrated with
-/// single or multi-threaded code in reactive or proactive IO frameworks.
+/// pn_connection_engine_t instances are *not* thread safe but they are
+/// independent, so separate instances can be used concurrently. For example a
+/// multi-threaded application can process connections in multiple threads,
+/// provided work on each connection is serialized.
 ///
 /// Summary of use:
 ///
 /// - while !pn_connection_engine_finished()
 ///   - Read data from your source into pn_connection_engine_read_buffer()
-///   - Call pn_connection_engine_read_done() when complete.
+///   - Call pn_connection_engine_read_done() to indicate how much was read.
+///   - Call pn_connection_engine_dispatch() to dispatch events until it returns NULL.
 ///   - Write data from pn_connection_engine_write_buffer() to your destination.
 ///   - Call pn_connection_engine_write_done() to indicate how much was written.
-///   - Call pn_connection_engine_dispatch() to dispatch events until it returns NULL.
 ///
-/// Note on error handling: most of the pn_connection_engine_*() functions do
-/// not return an error code. If a fatal error occurs, the transport error
-/// condition will be set and the next call to pn_connection_engine_dispatch()
-/// report it to the handler as a  PN_TRANSPORT_ERROR event and return false.
+/// *Synchronous and Asynchronous IO*: The `_buffer()` and `_done()` functions
+/// are separate so you can post an asynchronous read or write request with the
+/// `_buffer()`, then later signal completion of that request with `_done()`.
 ///
-/// @defgroup connection_engine The Connection Engine
-/// @{
+/// *Error handling*: most `pn_connection_engine_` functions do not return an
+/// error code. If an error occurs, the transport will be closed with an error
+/// condition, the handler will receive a `PN_TRANSPORT_ERROR` event, and
+/// pn_connection_engine_finished() will return `true` once all final processing
+/// is complete. Thus the event handling application code is in change of error
+/// handling, not the IO integration code.
 ///
 
 #include <proton/condition.h>

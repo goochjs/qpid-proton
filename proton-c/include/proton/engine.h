@@ -32,6 +32,7 @@
 
 #include <proton/condition.h>
 #include <proton/connection.h>
+#include <proton/container.h>
 #include <proton/session.h>
 #include <proton/terminus.h>
 #include <proton/link.h>
