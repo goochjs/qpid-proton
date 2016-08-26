@@ -36,6 +36,8 @@ extern "C" {
 /** A parsed URL */
 typedef struct pn_url_t pn_url_t;
 
+/*** @} */
+
 /** Create an empty URL */
 PN_EXTERN pn_url_t *pn_url(void);
 

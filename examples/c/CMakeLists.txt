@@ -18,19 +18,6 @@
 #
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_subdirectory(container)
 add_subdirectory(messenger)
 add_subdirectory(reactor)
-add_subdirectory(libuv)
-
-# FIXME aconway 2016-07-06: conditional on libuv present.
-# Add a test with the correct environment to find test executables and valgrind.
-macro(add_c_test name)
-  if(WIN32)
-    set(test_path "$<TARGET_FILE_DIR:libuv-simple_send>;$<TARGET_FILE_DIR:qpid-proton>")
-  else(WIN32)
-    set(test_path "$<TARGET_FILE_DIR:libuv-simple_send>:$ENV{PATH}")
-  endif(WIN32)
-  add_test(NAME ${name} COMMAND ${CMAKE_COMMAND} -E env "PATH=${test_path}" ${VALGRIND_ENV} ${ARGN})
-endmacro()
-
-add_c_test(c_example_test ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/example_test.py -v)
