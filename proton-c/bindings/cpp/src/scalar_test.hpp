@@ -98,6 +98,9 @@ template<class V>  void bad_get_test() {
     try { get<int>(V(timestamp())); FAIL("timestamp as int"); } catch (conversion_error) {}
     try { get<timestamp>(V(0)); FAIL("int as timestamp"); } catch (conversion_error) {}
     try { get<timestamp>(V(std::string())); FAIL("string as timestamp"); } catch (conversion_error) {}
+    try { get<null>(V("foo")); FAIL("string as  null"); } catch(conversion_error) {}
+    try { get<bool>(V()); FAIL("null as bool"); } catch(conversion_error) {}
+    try { get<std::string>(V()); FAIL("null as string"); } catch(conversion_error) {}
 }
 
 // Test some valid coercions and some bad ones with mixed types.

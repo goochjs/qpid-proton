@@ -35,17 +35,18 @@ class annotation_key : public scalar_base {
     /// An empty annotation key.
     annotation_key() {}
 
-    /// Construct from any type that can be assigned.
-    template <class T> annotation_key(const T& x) { *this = x; }
+    /// @name Construct from uint64_t, symbol or string (treated as SYMBOL).
+    /// @{
+    annotation_key(uint64_t x) { put_(x); }
+    annotation_key(const symbol& x) { put_(x); }
+    annotation_key(const std::string& x) { put_(symbol(x)); }
+    annotation_key(const char* x) { put_(symbol(x)); }
+    ///@}
 
-    /// @name Assign from a uint64_t or symbol.
+    /// @name Assign from  a uint64_t, symbol or string (treated as SYMBOL).
     /// @{
     annotation_key& operator=(uint64_t x) { put_(x); return *this; }
     annotation_key& operator=(const symbol& x) { put_(x); return *this; }
-    /// @}
-
-    /// @name Extra conversions for strings, treated as codec::SYMBOL.
-    /// @{
     annotation_key& operator=(const std::string& x) { put_(symbol(x)); return *this; }
     annotation_key& operator=(const char *x) { put_(symbol(x)); return *this; }
     /// @}
@@ -71,8 +72,6 @@ template<> inline uint64_t get<uint64_t>(const annotation_key& x) { return inter
 /// @related annotation_key
 template<> inline symbol get<symbol>(const annotation_key& x) { return internal::get<symbol>(x); }
 
-/// Get the @ref binary value or throw conversion_error.
-///
 /// @copydoc scalar::coerce
 /// @related annotation_key
 template<class T> T coerce(const annotation_key& x) { return internal::coerce<T>(x); }

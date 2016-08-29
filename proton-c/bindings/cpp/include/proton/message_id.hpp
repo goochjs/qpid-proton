@@ -43,19 +43,24 @@ class message_id : public scalar_base {
   public:
     /// An empty message_id.
     message_id() {}
+    // Default copy and assign.
 
-    /// Construct from any type that can be assigned.
-    template <class T> message_id(const T& x) { *this = x; }
+    /// @name Construct from C++ value, deduce the AMQP type()
+    /// @{
+    message_id(uint64_t x) { put_(x); }
+    message_id(const uuid& x) { put_(x); }
+    message_id(const binary& x) { put_(x); }
+    message_id(const std::string& x) { put_(x); }
+    message_id(const char* x) { put_(x); } ///< Treated as STRING
+    /// @}
 
-    /// @name Assignment operators
-    /// Assign a C++ value, deduce the AMQP type()
-    ///
+    /// @name Assign a C++ value, deduce the AMQP type()
     /// @{
     message_id& operator=(uint64_t x) { put_(x); return *this; }
     message_id& operator=(const uuid& x) { put_(x); return *this; }
     message_id& operator=(const binary& x) { put_(x); return *this; }
     message_id& operator=(const std::string& x) { put_(x); return *this; }
-    message_id& operator=(const char* x) { put_(x); return *this; } ///< Treated as amqp::STRING
+    message_id& operator=(const char* x) { put_(x); return *this; } ///< Treated as STRING
     /// @}
 
   private:

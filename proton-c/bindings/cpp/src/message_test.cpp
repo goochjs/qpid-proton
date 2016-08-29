@@ -19,6 +19,7 @@
 
 #include "proton/message.hpp"
 #include "proton/scalar.hpp"
+#include "proton/message_id.hpp"
 #include "test_bits.hpp"
 #include <string>
 #include <fstream>
@@ -30,91 +31,59 @@ namespace {
 using namespace std;
 using namespace proton;
 
-#define CHECK_STR(ATTR) \
-    m.ATTR(#ATTR); \
-    ASSERT_EQUAL(std::string(#ATTR), m.ATTR())
-
-#define CHECK_MESSAGE_ID(ATTR) \
-    m.ATTR(#ATTR); \
-    ASSERT_EQUAL(scalar(#ATTR), m.ATTR())
-
-void test_message_defaults() {
-    message m;
-    ASSERT(m.body().empty());
-    ASSERT(m.id().empty());
-    ASSERT(m.user().empty());
-    ASSERT(m.to().empty());
-    ASSERT(m.subject().empty());
-    ASSERT(m.reply_to().empty());
-    ASSERT(m.correlation_id().empty());
-    ASSERT(m.content_type().empty());
-    ASSERT(m.content_encoding().empty());
-    ASSERT(m.group_id().empty());
-    ASSERT(m.reply_to_group_id().empty());
-    ASSERT_EQUAL(0, m.expiry_time().milliseconds());
-    ASSERT_EQUAL(0, m.creation_time().milliseconds());
-
-    ASSERT_EQUAL(false, m.inferred());
-    ASSERT_EQUAL(false, m.durable());
-    ASSERT_EQUAL(0, m.ttl().milliseconds());
-    ASSERT_EQUAL(message::default_priority, m.priority());
-    ASSERT_EQUAL(false, m.first_acquirer());
-    ASSERT_EQUAL(0u, m.delivery_count());
-}
+// Check default value, set & get property.
+#define CHECK_PROP(PROP, DEFAULT, VALUE)       \
+    do {                                        \
+        ASSERT_EQUAL(DEFAULT, m.PROP());        \
+        m.PROP(VALUE);                          \
+        ASSERT_EQUAL(VALUE, m.PROP());          \
+    } while(0)
 
 void test_message_properties() {
-    message m("hello");
-    std::string s = get<std::string>(m.body());
-    ASSERT_EQUAL("hello", s);
+    message m;
 
-    CHECK_MESSAGE_ID(id);
-    CHECK_STR(user);
-    CHECK_STR(to);
-    CHECK_STR(subject);
-    CHECK_STR(reply_to);
-    CHECK_MESSAGE_ID(correlation_id);
-    CHECK_STR(content_type);
-    CHECK_STR(content_encoding);
-    CHECK_STR(group_id);
-    CHECK_STR(reply_to_group_id);
-    m.expiry_time(timestamp(42));
-    ASSERT_EQUAL(m.expiry_time().milliseconds(), 42);
-    m.creation_time(timestamp(4242));
-    ASSERT_EQUAL(m.creation_time().milliseconds(), 4242);
-    m.ttl(duration(30));
-    ASSERT_EQUAL(m.ttl().milliseconds(), 30);
-    m.priority(3);
-    ASSERT_EQUAL(m.priority(), 3);
+    CHECK_PROP(id, message_id(), message_id("id"));
+    CHECK_PROP(user, "", "user");
+    CHECK_PROP(to, "", "to");
+    CHECK_PROP(reply_to, "", "reply_to");
+    CHECK_PROP(correlation_id, message_id(), message_id("correlation_id"));
+    CHECK_PROP(body, value(), "body");
+    CHECK_PROP(subject, "", "subject");
+    CHECK_PROP(content_type, "", "content_type");
+    CHECK_PROP(content_encoding, "", "content_encoding");
+    CHECK_PROP(expiry_time, timestamp(), timestamp(42));
+    CHECK_PROP(creation_time, timestamp(), timestamp(4242));
+    CHECK_PROP(durable, false, true);
+    CHECK_PROP(inferred, false, true);
+    CHECK_PROP(ttl, duration(), duration(30));
+    CHECK_PROP(priority, message::default_priority, 17);
+    CHECK_PROP(first_acquirer, false, true);
+    CHECK_PROP(delivery_count, 0u, 33u);
+    CHECK_PROP(group_id, "", "group_id");
+    CHECK_PROP(reply_to_group_id, "", "reply_to_group_id");
+    CHECK_PROP(group_sequence, 0, 12);
 
     message m2(m);
-    ASSERT_EQUAL("hello", get<std::string>(m2.body()));
     ASSERT_EQUAL(message_id("id"), m2.id());
     ASSERT_EQUAL("user", m2.user());
     ASSERT_EQUAL("to", m2.to());
-    ASSERT_EQUAL("subject", m2.subject());
     ASSERT_EQUAL("reply_to", m2.reply_to());
     ASSERT_EQUAL(message_id("correlation_id"), m2.correlation_id());
-    ASSERT_EQUAL("content_type", m2.content_type());
-    ASSERT_EQUAL("content_encoding", m2.content_encoding());
-    ASSERT_EQUAL("group_id", m2.group_id());
-    ASSERT_EQUAL("reply_to_group_id", m2.reply_to_group_id());
-    ASSERT_EQUAL(42, m2.expiry_time().milliseconds());
-    ASSERT_EQUAL(4242, m.creation_time().milliseconds());
-
-    m2 = m;
-    ASSERT_EQUAL("hello", get<std::string>(m2.body()));
-    ASSERT_EQUAL(message_id("id"), m2.id());
-    ASSERT_EQUAL("user", m2.user());
-    ASSERT_EQUAL("to", m2.to());
+    ASSERT_EQUAL(value("body"), m2.body());
     ASSERT_EQUAL("subject", m2.subject());
-    ASSERT_EQUAL("reply_to", m2.reply_to());
-    ASSERT_EQUAL(message_id("correlation_id"), m2.correlation_id());
     ASSERT_EQUAL("content_type", m2.content_type());
     ASSERT_EQUAL("content_encoding", m2.content_encoding());
+    ASSERT_EQUAL(42, m2.expiry_time().milliseconds());
+    ASSERT_EQUAL(4242, m2.creation_time().milliseconds());
+    ASSERT_EQUAL(true, m2.durable());
+    ASSERT_EQUAL(true, m2.inferred());
+    ASSERT_EQUAL(duration(30), m2.ttl());
+    ASSERT_EQUAL(17, m2.priority());
+    ASSERT_EQUAL(true, m2.first_acquirer());
+    ASSERT_EQUAL(33u, m2.delivery_count());
     ASSERT_EQUAL("group_id", m2.group_id());
     ASSERT_EQUAL("reply_to_group_id", m2.reply_to_group_id());
-    ASSERT_EQUAL(42, m2.expiry_time().milliseconds());
-    ASSERT_EQUAL(4242, m.creation_time().milliseconds());
+    ASSERT_EQUAL(12, m2.group_sequence());
 }
 
 void test_message_body() {
@@ -169,7 +138,6 @@ void test_message_maps() {
 int main(int, char**) {
     int failed = 0;
     RUN_TEST(failed, test_message_properties());
-    RUN_TEST(failed, test_message_defaults());
     RUN_TEST(failed, test_message_body());
     RUN_TEST(failed, test_message_maps());
     return failed;

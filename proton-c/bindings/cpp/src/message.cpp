@@ -80,6 +80,7 @@ message& message::operator=(const message& m) {
         std::vector<char> data;
         m.encode(data);
         decode(data);
+        inferred(m.inferred()); // Not part of encoded message.
     }
     return *this;
 }

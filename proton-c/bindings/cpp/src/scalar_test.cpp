@@ -38,6 +38,16 @@ void encode_decode_test() {
     ASSERT_EQUAL(std::string("foo"), get<std::string>(a2));
 }
 
+void empty_test() {
+    scalar empty;
+    ASSERT(empty.empty());
+    ASSERT_EQUAL(scalar(), empty);
+    ASSERT(scalar("foo") != empty);
+    ASSERT(empty < scalar("foo"));
+    ASSERT(scalar("foo") > empty);
+    ASSERT_EQUAL("<null>", to_string(empty));
+}
+
 void message_id_test() {
     ASSERT_EQUAL(23, coerce<int64_t>(message_id(23)));
     ASSERT_EQUAL(23u, get<uint64_t>(message_id(23)));
@@ -47,6 +57,8 @@ void message_id_test() {
     ASSERT(message_id("a") < message_id("z"));
     uuid r = uuid::random();
     ASSERT_EQUAL(r, get<uuid>(message_id(r)));
+    ASSERT_EQUAL(message_id(), scalar()); // Empty message_id and empty scalar compare equal.
+    try { message_id m(true); } catch(conversion_error) {}
 }
 
 void annotation_key_test() {
@@ -54,6 +66,7 @@ void annotation_key_test() {
     ASSERT_EQUAL(23u, get<uint64_t>(annotation_key(23)));
     ASSERT_EQUAL("foo", coerce<std::string>(annotation_key("foo")));
     ASSERT_EQUAL(scalar(symbol("foo")), annotation_key("foo"));
+    ASSERT_EQUAL(annotation_key(), scalar()); // Empty annotation_key and empty scalar compare equal.
 }
 
 template <class T> T make(const char c) { T x; std::fill(x.begin(), x.end(), c); return x; }
@@ -64,6 +77,7 @@ int main(int, char**) {
     int failed = 0;
     scalar_test_group<scalar>(failed);
 
+    RUN_TEST(failed, empty_test());
     RUN_TEST(failed, encode_decode_test());
     RUN_TEST(failed, message_id_test());
     RUN_TEST(failed, annotation_key_test());
