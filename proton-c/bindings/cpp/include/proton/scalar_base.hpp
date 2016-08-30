@@ -52,6 +52,12 @@ template<class T> T get(const scalar_base& s);
 }
 
 /// Base class for scalar types.
+///
+/// A scalar type can hold a simple value such as an integer or string.
+/// proton::scalar can hold any simple type, other "restricted scalar"
+/// types such as proton::message_id can hold only a restricted subset of
+/// the available types.
+///
 class scalar_base : private internal::comparable<scalar_base> {
   public:
     /// AMQP type of data stored in the scalar
@@ -59,6 +65,9 @@ class scalar_base : private internal::comparable<scalar_base> {
 
     /// True if there is no value, i.e. type() == NULL_TYPE.
     PN_CPP_EXTERN bool empty() const;
+
+    /// Clear the value, make it empty().
+    void clear();
 
     /// Compare
   friend PN_CPP_EXTERN bool operator<(const scalar_base& x, const scalar_base& y);

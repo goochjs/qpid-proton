@@ -42,9 +42,6 @@ class scalar : public scalar_base {
 
     /// Assign from any scalar type.
     template <class T> scalar& operator=(const T& x) { put(x); return *this; }
-
-    /// Clear the scalar, making it empty().
-    void clear() { *this = null(); }
 };
 
 /// Get a contained value of type T. For example:

@@ -51,6 +51,7 @@ class message_id : public scalar_base {
     message_id(const uuid& x) { put_(x); }
     message_id(const binary& x) { put_(x); }
     message_id(const std::string& x) { put_(x); }
+    message_id(const null& x) { put_(x); }
     message_id(const char* x) { put_(x); } ///< Treated as STRING
     /// @}
 
@@ -60,6 +61,7 @@ class message_id : public scalar_base {
     message_id& operator=(const uuid& x) { put_(x); return *this; }
     message_id& operator=(const binary& x) { put_(x); return *this; }
     message_id& operator=(const std::string& x) { put_(x); return *this; }
+    message_id& operator=(const null& x) { put_(x); return *this; }
     message_id& operator=(const char* x) { put_(x); return *this; } ///< Treated as STRING
     /// @}
 
@@ -85,6 +87,8 @@ template<> inline uuid get<uuid>(const message_id& x) { return internal::get<uui
 template<> inline binary get<binary>(const message_id& x) { return internal::get<binary>(x); }
 /// Get the std::string value or throw conversion_error. @related message_id
 template<> inline std::string get<std::string>(const message_id& x) { return internal::get<std::string>(x); }
+/// Get the null value or throw conversion_error. @related message_id
+template<> inline null get<null>(const message_id& x) { return internal::get<null>(x); }
 
 /// @copydoc scalar::coerce
 /// @related message_id

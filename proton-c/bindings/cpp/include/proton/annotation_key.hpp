@@ -39,16 +39,18 @@ class annotation_key : public scalar_base {
     /// @{
     annotation_key(uint64_t x) { put_(x); }
     annotation_key(const symbol& x) { put_(x); }
-    annotation_key(const std::string& x) { put_(symbol(x)); }
-    annotation_key(const char* x) { put_(symbol(x)); }
+    annotation_key(const std::string& x) { put_(symbol(x)); } ///< Treated as SYMBOL
+    annotation_key(const char* x) { put_(symbol(x)); } ///< Treated as SYMBOL
+    annotation_key(const null& x) { put_(x); }
     ///@}
 
     /// @name Assign from  a uint64_t, symbol or string (treated as SYMBOL).
     /// @{
     annotation_key& operator=(uint64_t x) { put_(x); return *this; }
     annotation_key& operator=(const symbol& x) { put_(x); return *this; }
-    annotation_key& operator=(const std::string& x) { put_(symbol(x)); return *this; }
-    annotation_key& operator=(const char *x) { put_(symbol(x)); return *this; }
+    annotation_key& operator=(const std::string& x) { put_(symbol(x)); return *this; }  ///< Treated as SYMBOL
+    annotation_key& operator=(const char *x) { put_(symbol(x)); return *this; } ///< Treated as SYMBOL
+    annotation_key& operator=(const null& x) { put_(x); return *this; }
     /// @}
 
     /// @cond INTERNAL
@@ -71,6 +73,11 @@ template<> inline uint64_t get<uint64_t>(const annotation_key& x) { return inter
 ///
 /// @related annotation_key
 template<> inline symbol get<symbol>(const annotation_key& x) { return internal::get<symbol>(x); }
+
+/// Get the @ref null value or throw conversion_error.
+///
+/// @related annotation_key
+template<> inline null get<null>(const annotation_key& x) { return internal::get<null>(x); }
 
 /// @copydoc scalar::coerce
 /// @related annotation_key

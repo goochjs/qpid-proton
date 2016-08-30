@@ -47,6 +47,8 @@ type_id scalar_base::type() const { return type_id(atom_.type); }
 
 bool scalar_base::empty() const { return type() == NULL_TYPE; }
 
+void scalar_base::clear() { atom_.type = PN_NULL; }
+
 void scalar_base::set(const binary& x, pn_type_t t) {
     atom_.type = t;
     bytes_ = x;
@@ -82,8 +84,13 @@ void scalar_base::put_(const uuid& x) { byte_copy(atom_.u.as_uuid, x); atom_.typ
 void scalar_base::put_(const std::string& x) { set(binary(x), PN_STRING); }
 void scalar_base::put_(const symbol& x) { set(binary(x), PN_SYMBOL); }
 void scalar_base::put_(const binary& x) { set(x, PN_BINARY); }
-void scalar_base::put_(const char* x) { set(binary(std::string(x)), PN_STRING); }
-void scalar_base::put_(const null&) { atom_.type = PN_NULL; }
+void scalar_base::put_(const null&) { clear(); }
+void scalar_base::put_(const char* x) {
+    if (x)
+        set(binary(std::string(x)), PN_STRING);
+    else
+        clear();                // Special case for NULL char*.
+}
 
 void scalar_base::ok(pn_type_t t) const {
     if (atom_.type != t) throw make_conversion_error(type_id(t), type());
