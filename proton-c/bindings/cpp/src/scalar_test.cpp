@@ -58,7 +58,6 @@ void message_id_test() {
     uuid r = uuid::random();
     ASSERT_EQUAL(r, get<uuid>(message_id(r)));
     ASSERT_EQUAL(message_id(), scalar()); // Empty message_id and empty scalar compare equal.
-    try { message_id m(true); } catch(conversion_error) {}
 }
 
 void annotation_key_test() {
@@ -67,6 +66,15 @@ void annotation_key_test() {
     ASSERT_EQUAL("foo", coerce<std::string>(annotation_key("foo")));
     ASSERT_EQUAL(scalar(symbol("foo")), annotation_key("foo"));
     ASSERT_EQUAL(annotation_key(), scalar()); // Empty annotation_key and empty scalar compare equal.
+}
+
+void string_or_null_test() {
+    ASSERT(string_or_null().empty());
+    ASSERT_EQUAL(scalar(), string_or_null());
+    ASSERT_EQUAL("foo", get<std::string>(string_or_null("foo")));
+    ASSERT_EQUAL("foo", to_string(string_or_null("foo")));
+    string_or_null empty;
+    try { get<std::string>(empty); FAIL("string from empty"); } catch (conversion_error) {}
 }
 
 template <class T> T make(const char c) { T x; std::fill(x.begin(), x.end(), c); return x; }
@@ -81,5 +89,6 @@ int main(int, char**) {
     RUN_TEST(failed, encode_decode_test());
     RUN_TEST(failed, message_id_test());
     RUN_TEST(failed, annotation_key_test());
+    RUN_TEST(failed, string_or_null_test());
     return failed;
 }

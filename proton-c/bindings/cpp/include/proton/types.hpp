@@ -40,6 +40,7 @@
 #include "./duration.hpp"
 #include "./message_id.hpp"
 #include "./scalar.hpp"
+#include "./string_or_null.hpp"
 #include "./symbol.hpp"
 #include "./timestamp.hpp"
 #include "./types_fwd.hpp"

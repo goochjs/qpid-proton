@@ -20,6 +20,7 @@
 #include "proton/message.hpp"
 #include "proton/scalar.hpp"
 #include "proton/message_id.hpp"
+#include "proton/types_fwd.hpp"
 #include "test_bits.hpp"
 #include <string>
 #include <fstream>
@@ -41,7 +42,6 @@ using namespace proton;
 
 void test_message_properties() {
     message m;
-
     CHECK_PROP(id, message_id(), message_id("id"));
     CHECK_PROP(user, "", "user");
     CHECK_PROP(to, "", "to");
@@ -85,6 +85,37 @@ void test_message_properties() {
     ASSERT_EQUAL("reply_to_group_id", m2.reply_to_group_id());
     ASSERT_EQUAL(12, m2.group_sequence());
 }
+
+void test_string_or_null(
+    const std::string& name,
+    std::string  (message::*getter)() const,
+    void (message::*setter)(const std::string&),
+    string_or_null (message::*value_getter)() const,
+    void (message::*value_setter)(const string_or_null&))
+{
+    message m;
+    string_or_null sn = (m.*value_getter)();
+    ASSERT((m.*value_getter)().empty());
+
+    (m.*setter)(name);
+    ASSERT_EQUAL(name, (m.*getter)());
+    ASSERT_EQUAL(name, get<std::string>((m.*value_getter)()));
+
+    (m.*value_setter)(name);
+    ASSERT_EQUAL(name, (m.*getter)());
+    ASSERT_EQUAL(name, get<std::string>((m.*value_getter)()));
+
+    (m.*value_setter)(null());  // Reset to null
+    ASSERT((m.*value_getter)().empty());
+    message m2(m);              // Ensure it copies as null
+    ASSERT((m2.*getter)().empty());
+    FAIL("Test with all set, knock out one by one");
+}
+
+#define TEST_STRING_OR_NULL(PROPERTY)                                   \
+    test_string_or_null(#PROPERTY,                                      \
+                        &message::PROPERTY, &message::PROPERTY,         \
+                        &message::PROPERTY##_value, &message::PROPERTY##_value)
 
 void test_message_body() {
     std::string s("hello");
@@ -140,5 +171,8 @@ int main(int, char**) {
     RUN_TEST(failed, test_message_properties());
     RUN_TEST(failed, test_message_body());
     RUN_TEST(failed, test_message_maps());
+    // FIXME aconway 2016-08-30:
+    // Nullable string tests
+    RUN_TEST(failed, TEST_STRING_OR_NULL(reply_to));
     return failed;
 }

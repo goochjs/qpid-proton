@@ -332,4 +332,16 @@ void message::group_sequence(int32_t d) { pn_message_set_group_sequence(pn_msg()
 
 const uint8_t message::default_priority = PN_DEFAULT_PRIORITY;
 
+
+string_or_null message::reply_to_value() const {
+    return string_or_null(pn_message_get_reply_to(pn_msg()));
+}
+
+void message::reply_to_value(const string_or_null& sn) {
+    if (sn.empty())
+        check(pn_message_set_reply_to(pn_msg(), 0));
+    else
+        check(pn_message_set_reply_to(pn_msg(), get<std::string>(sn).c_str()));
+}
+
 }

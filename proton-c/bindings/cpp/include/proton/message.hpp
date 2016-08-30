@@ -25,12 +25,12 @@
 #include "./annotation_key.hpp"
 #include "./codec/map.hpp"
 #include "./duration.hpp"
-#include "./internal/export.hpp"
-#include "./message_id.hpp"
-#include "./value.hpp"
-
 #include "./internal/cached_map.hpp"
+#include "./internal/export.hpp"
 #include "./internal/pn_unique_ptr.hpp"
+#include "./message_id.hpp"
+#include "./string_or_null.hpp"
+#include "./value.hpp"
 
 #include <string>
 #include <vector>
@@ -247,7 +247,7 @@ class message {
     /// acquired, by other recipients.
 
     // XXX The triple-not in the last sentence above is confusing.
-    
+
     PN_CPP_EXTERN bool first_acquirer() const;
 
     /// Set the first acquirer flag.
@@ -322,6 +322,22 @@ class message {
 
     /// Default priority assigned to new messages.
     PN_CPP_EXTERN static const uint8_t default_priority;
+
+    ///@name Accessors to test for missing string values.
+    ///
+    /// Normally the std::string accesors are sufficient, a missing value is equivalent to
+    /// an empty string. For some exceptional interoperability cases it might be necessary
+    /// to distinguish a missing value from an empty string. These functions return
+    /// or accept string_or_null values so you can detect or set missing values.
+    ///@{
+
+    // FIXME aconway 2016-08-29: doc, missing functions, null setters.
+
+    PN_CPP_EXTERN string_or_null reply_to_value() const;
+    PN_CPP_EXTERN void reply_to_value(const string_or_null&);
+
+    ///@}
+
 
     /// @cond INTERNAL
   private:
