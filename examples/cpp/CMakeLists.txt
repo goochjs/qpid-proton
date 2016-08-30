@@ -67,6 +67,16 @@ if(HAS_CPP11)
 
   # Linux-only multi-threaded examples (TODO make these portable)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+
+    # Check libraries needed for multi-threaded examples
+    set(THREAD_LIBS pthread)
+    include(CheckLibraryExists)
+    # Some architectures (e.g. ppc) also need libatomic.
+    check_library_exists(atomic __atomic_fetch_add_8 "" HAVE_LIBATOMIC)
+    if(HAVE_LIBATOMIC)
+      list(APPEND THREAD_LIBS "atomic")
+    endif()
+
     set(container_src mt/epoll_container.cpp)
     foreach(example
         broker)
