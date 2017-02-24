@@ -158,37 +158,5 @@ class ExampleTestCase(TestCase):
         self.procs.append(p)
         return p
 
-class BrokerTestCase(ExampleTestCase):
-    """
-    ExampleTest that starts a broker in setUpClass and kills it in tearDownClass.
-    Subclass must set `broker_exe` class variable with the name of the broker executable.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        sock = bind0()
-        cls.port = sock.port()
-        cls.addr = "127.0.0.1:%s/examples" % (cls.port)
-        cls.broker = None       # In case Proc throws, create the attribute.
-        cls.broker = Proc(cls.broker_exe + ["-a", cls.addr], bufsize=0)
-        try:
-            cls.broker.wait_re("listening")
-        except Exception, e:
-            cls.broker.kill()
-            raise
-        finally:
-            sock.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        if cls.broker: cls.broker.kill()
-
-    def tearDown(self):
-        b = type(self).broker
-        if b and b.poll() !=  None: # Broker crashed
-            type(self).setUpClass() # Start another for the next test.
-            raise ProcError(b, "broker crash")
-        super(BrokerTestCase, self).tearDown()
-
 if __name__ == "__main__":
     unittest.main()
